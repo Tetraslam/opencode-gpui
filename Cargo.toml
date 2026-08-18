@@ -1,0 +1,30 @@
+[package]
+name = "opencode-gpui"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "A high-performance native OpenCode client built with GPUI"
+repository = "https://github.com/Tetraslam/opencode-gpui"
+
+[dependencies]
+gpui = "0.2.2"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "query", "rustls"] }
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = ["rt-multi-thread", "sync"] }
+url = "2.5.8"
+
+[dev-dependencies]
+pollster = "0.4.0"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
