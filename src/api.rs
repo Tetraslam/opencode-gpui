@@ -3,13 +3,18 @@ use std::{
     thread,
 };
 
+use eventsource_stream::Eventsource;
+use futures_util::StreamExt;
 use reqwest::{Client as HttpClient, StatusCode};
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 use tokio::{runtime::Handle, sync::oneshot};
 use url::Url;
 
-use crate::model::{Health, Session, sort_sessions};
+use crate::{
+    event::{Event, Payload},
+    model::{Health, MessageRecord, Session, sort_sessions},
+};
 
 #[derive(Clone)]
 pub struct Client {
@@ -42,10 +47,17 @@ pub struct Bootstrap {
     pub sessions: Vec<Session>,
 }
 
+pub struct EventSubscription {
+    receiver: tokio::sync::mpsc::Receiver<Result<Event, String>>,
+    cancel: Option<oneshot::Sender<()>>,
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid OpenCode server URL: {0}")]
     InvalidUrl(#[from] url::ParseError),
+    #[error("OpenCode server URL cannot be used as an HTTP base URL")]
+    InvalidBaseUrl,
     #[error("could not start the network runtime")]
     RuntimeStart,
     #[error("the network runtime stopped unexpectedly")]
@@ -72,7 +84,6 @@ impl Client {
         let base_url = Url::parse(base_url)?;
         let http = HttpClient::builder()
             .connect_timeout(std::time::Duration::from_secs(3))
-            .timeout(std::time::Duration::from_secs(20))
             .build()?;
 
         Ok(Self {
@@ -104,9 +115,101 @@ impl Client {
             })
             .await
     }
+
+    /// Fetches the newest messages for one session, bounded by `limit`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the runtime stops or the server request fails.
+    pub async fn messages(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<MessageRecord>, Error> {
+        let inner = Arc::clone(&self.inner);
+        let session_id = session_id.to_owned();
+        self.inner
+            .runtime
+            .run(async move { inner.get_messages(&session_id, limit.clamp(1, 1_000)).await })
+            .await
+    }
+
+    /// Opens a cancellable server-sent event subscription for this client's directory scope.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the runtime stops or the server rejects the subscription.
+    pub async fn subscribe_events(&self) -> Result<EventSubscription, Error> {
+        let inner = Arc::clone(&self.inner);
+        self.inner
+            .runtime
+            .run(async move { inner.subscribe_events().await })
+            .await
+    }
 }
 
 impl ClientInner {
+    async fn subscribe_events(&self) -> Result<EventSubscription, Error> {
+        let mut url = self.url(&["event"])?;
+        if let Some(directory) = &self.directory {
+            url.query_pairs_mut().append_pair("directory", directory);
+        }
+        let response = self.request_url(url).send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            let message = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "response body unavailable".into());
+            return Err(Error::Http { status, message });
+        }
+
+        let mut stream = response.bytes_stream().eventsource();
+        let (sender, receiver) = tokio::sync::mpsc::channel(1_024);
+        let (cancel, mut cancelled) = oneshot::channel();
+        tokio::spawn(async move {
+            loop {
+                let item = tokio::select! {
+                    _ = &mut cancelled => break,
+                    item = stream.next() => item,
+                };
+                let Some(item) = item else {
+                    break;
+                };
+                let event = item.map_err(|error| error.to_string()).and_then(|event| {
+                    serde_json::from_str::<Payload>(&event.data)
+                        .map(Payload::into_event)
+                        .map_err(|error| error.to_string())
+                });
+                let failed = event.is_err();
+                if sender.send(event).await.is_err() || failed {
+                    break;
+                }
+            }
+        });
+
+        Ok(EventSubscription {
+            receiver,
+            cancel: Some(cancel),
+        })
+    }
+
+    async fn get_messages(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Result<Vec<MessageRecord>, Error> {
+        let mut url = self.url(&["session", session_id, "message"])?;
+        {
+            let mut query = url.query_pairs_mut();
+            if let Some(directory) = &self.directory {
+                query.append_pair("directory", directory);
+            }
+            query.append_pair("limit", &limit.to_string());
+        }
+        Self::send_json(self.request_url(url)).await
+    }
+
     async fn get_sessions(&self) -> Result<Vec<Session>, Error> {
         let mut request = self.request("session")?;
         if let Some(directory) = &self.directory {
@@ -121,15 +224,33 @@ impl ClientInner {
 
     fn request(&self, path: &str) -> Result<reqwest::RequestBuilder, Error> {
         let url = self.base_url.join(path)?;
+        Ok(self.request_url(url))
+    }
+
+    fn request_url(&self, url: Url) -> reqwest::RequestBuilder {
         let request = self.http.get(url);
-        Ok(match (&self.username, &self.password) {
+        match (&self.username, &self.password) {
             (Some(username), Some(password)) => request.basic_auth(username, Some(password)),
             _ => request,
-        })
+        }
+    }
+
+    fn url(&self, segments: &[&str]) -> Result<Url, Error> {
+        let mut url = self.base_url.clone();
+        let mut path = url
+            .path_segments_mut()
+            .map_err(|()| Error::InvalidBaseUrl)?;
+        path.pop_if_empty();
+        path.extend(segments);
+        drop(path);
+        Ok(url)
     }
 
     async fn send_json<T: DeserializeOwned>(request: reqwest::RequestBuilder) -> Result<T, Error> {
-        let response = request.send().await?;
+        let response = request
+            .timeout(std::time::Duration::from_secs(20))
+            .send()
+            .await?;
         let status = response.status();
         if !status.is_success() {
             let message = response
@@ -139,6 +260,24 @@ impl ClientInner {
             return Err(Error::Http { status, message });
         }
         Ok(response.json().await?)
+    }
+}
+
+impl EventSubscription {
+    pub async fn next(&mut self) -> Option<Result<Event, String>> {
+        self.receiver.recv().await
+    }
+
+    pub fn try_next(&mut self) -> Option<Result<Event, String>> {
+        self.receiver.try_recv().ok()
+    }
+}
+
+impl Drop for EventSubscription {
+    fn drop(&mut self) {
+        if let Some(cancel) = self.cancel.take() {
+            let _ = cancel.send(());
+        }
     }
 }
 
@@ -213,7 +352,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         let server = thread::spawn(move || {
-            for _ in 0..2 {
+            for _ in 0..3 {
                 let (mut stream, _) = listener.accept().unwrap();
                 let mut request = [0; 2048];
                 let length = stream.read(&mut request).unwrap();
@@ -222,6 +361,10 @@ mod tests {
                     r#"{"healthy":true,"version":"1.18.16"}"#
                 } else if request.starts_with("GET /session?directory=%2Fworkspace ") {
                     r#"[{"id":"ses_1","projectID":"prj_1","directory":"/workspace","title":"first","version":"1.18.16","time":{"created":1,"updated":2}},{"id":"ses_2","projectID":"prj_1","directory":"/workspace","title":"second","version":"1.18.16","time":{"created":2,"updated":3}}]"#
+                } else if request
+                    .starts_with("GET /session/ses_2/message?directory=%2Fworkspace&limit=100 ")
+                {
+                    r#"[{"info":{"id":"msg_1","sessionID":"ses_2","role":"user","time":{"created":3},"agent":"build","model":{"providerID":"openai","modelID":"gpt-test"}},"parts":[{"id":"part_1","sessionID":"ses_2","messageID":"msg_1","type":"text","text":"hello"}]}]"#
                 } else {
                     panic!("unexpected request: {request}");
                 };
@@ -253,6 +396,50 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["ses_2", "ses_1"]
         );
+        let messages = pollster::block_on(client.messages("ses_2", 100)).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].info.role(), "you");
+        assert_eq!(messages[0].parts[0].text(), Some("hello"));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn streams_directory_scoped_events() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 2048];
+            let length = stream.read(&mut request).unwrap();
+            let request = String::from_utf8_lossy(&request[..length]);
+            assert!(request.starts_with("GET /event?directory=%2Fworkspace "));
+            let body = "data: {\"type\":\"server.connected\",\"properties\":{}}\n\ndata: {\"type\":\"session.status\",\"properties\":{\"sessionID\":\"ses_1\",\"status\":{\"type\":\"busy\"}}}\n\n";
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let client = Client::new(
+            &format!("http://{address}"),
+            Some("/workspace".into()),
+            None,
+            None,
+        )
+        .unwrap();
+
+        pollster::block_on(async {
+            let mut events = client.subscribe_events().await.unwrap();
+            assert!(matches!(
+                events.next().await.unwrap().unwrap(),
+                Event::ServerConnected
+            ));
+            assert!(matches!(
+                events.next().await.unwrap().unwrap(),
+                Event::SessionStatus { session_id, .. } if session_id == "ses_1"
+            ));
+        });
         server.join().unwrap();
     }
 }
