@@ -121,6 +121,7 @@ impl Render for Workspace {
         let titlebar = self.render_titlebar();
         let rail = Self::render_activity_rail();
         let timeline = self.render_timeline(cx);
+        let composer = self.render_composer(cx);
         let sidebar = self.render_sidebar(cx);
         let inspector = (self.selected_part.is_some() && window.bounds().size.width >= px(1_240.0))
             .then(|| self.render_inspector());
@@ -156,7 +157,8 @@ impl Render for Workspace {
                                 "CONVERSATION",
                                 format!("{message_count:>4} MSG"),
                             ))
-                            .child(div().min_h_0().flex_1().child(timeline)),
+                            .child(div().min_h_0().flex_1().child(timeline))
+                            .child(composer),
                     )
                     .children(inspector),
             )

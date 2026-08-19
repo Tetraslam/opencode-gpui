@@ -1,4 +1,5 @@
 mod chrome;
+mod composer;
 mod events;
 mod format;
 mod history;
@@ -17,11 +18,12 @@ use std::{
 };
 
 use gpui::{
-    App, AppContext, Application, Bounds, Context, SharedString, Task, TitlebarOptions,
-    WindowBounds, WindowOptions, px, size,
+    App, AppContext, Application, Bounds, Context, Entity, Focusable, SharedString, Subscription,
+    Task, TitlebarOptions, WindowBounds, WindowOptions, px, size,
 };
 use opencode_gpui::{
     api::{Bootstrap, Client},
+    editor::{self, Submit, TextEditor},
     event::SessionStatus,
     model::{MessageRecord, Session},
 };
@@ -100,10 +102,17 @@ pub struct Workspace {
     pub(super) _events: Task<()>,
     pub(super) timeline_load: Option<Task<()>>,
     pub(super) history_load: Option<Task<()>>,
+    pub(super) editor: Entity<TextEditor>,
+    pub(super) prompt_error: Option<SharedString>,
+    pub(super) _editor_subscription: Subscription,
 }
 
 impl Workspace {
     fn new(cx: &mut Context<Self>) -> Self {
+        let editor = cx.new(|cx| TextEditor::new("Ask anything, @ files, / commands", cx));
+        let editor_subscription = cx.subscribe(&editor, |workspace, _, event: &Submit, cx| {
+            workspace.submit_prompt(event.text.clone(), cx);
+        });
         let server =
             env::var("OPENCODE_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:4096".into());
         let client_result = Client::new(
@@ -147,6 +156,9 @@ impl Workspace {
             _events: events,
             timeline_load: None,
             history_load: None,
+            editor,
+            prompt_error: None,
+            _editor_subscription: editor_subscription,
         }
     }
 
@@ -238,6 +250,7 @@ impl Workspace {
 
 pub fn run() {
     Application::new().run(|cx: &mut App| {
+        editor::init(cx);
         let bounds = Bounds::centered(None, size(px(1_440.0), px(900.0)), cx);
         cx.open_window(
             WindowOptions {
@@ -251,7 +264,10 @@ pub fn run() {
             },
             |window, cx| {
                 window.set_window_title("OpenCode");
-                cx.new(Workspace::new)
+                let workspace = cx.new(Workspace::new);
+                let editor = workspace.read(cx).editor.clone();
+                editor.read(cx).focus_handle(cx).focus(window);
+                workspace
             },
         )
         .expect("failed to open the OpenCode window");

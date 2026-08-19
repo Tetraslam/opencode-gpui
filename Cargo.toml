@@ -19,6 +19,7 @@ url = "2.5.8"
 unicode-segmentation = "1.12.0"
 
 [dev-dependencies]
+gpui = { version = "0.2.2", features = ["test-support"] }
 pollster = "0.4.0"
 
 [profile.release]
