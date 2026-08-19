@@ -32,6 +32,13 @@ pub enum Event {
         part: Part,
         delta: Option<String>,
     },
+    MessagePartDelta {
+        session_id: String,
+        message_id: String,
+        part_id: String,
+        field: String,
+        delta: String,
+    },
     MessagePartRemoved {
         session_id: String,
         message_id: String,
@@ -95,6 +102,18 @@ struct PartRemovedProperties {
     part: String,
 }
 
+#[derive(Deserialize)]
+struct PartDeltaProperties {
+    #[serde(rename = "sessionID")]
+    session_id: String,
+    #[serde(rename = "messageID")]
+    message_id: String,
+    #[serde(rename = "partID")]
+    part_id: String,
+    field: String,
+    delta: String,
+}
+
 impl Payload {
     #[must_use]
     pub fn into_event(self) -> Event {
@@ -125,6 +144,16 @@ impl Payload {
             )
             .map(|properties| Event::MessagePartUpdated {
                 part: properties.part,
+                delta: properties.delta,
+            }),
+            "message.part.delta" => serde_json::from_value::<PartDeltaProperties>(
+                self.properties.clone(),
+            )
+            .map(|properties| Event::MessagePartDelta {
+                session_id: properties.session_id,
+                message_id: properties.message_id,
+                part_id: properties.part_id,
+                field: properties.field,
                 delta: properties.delta,
             }),
             "message.part.removed" => serde_json::from_value::<PartRemovedProperties>(
@@ -178,5 +207,23 @@ mod tests {
 
         assert!(matches!(unknown.into_event(), Event::Unknown(_)));
         assert!(matches!(malformed.into_event(), Event::Unknown(_)));
+    }
+
+    #[test]
+    fn parses_streamed_part_delta() {
+        let payload: Payload = serde_json::from_str(
+            r#"{"type":"message.part.delta","properties":{"sessionID":"ses_1","messageID":"msg_1","partID":"prt_1","field":"text","delta":"hello"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            payload.into_event(),
+            Event::MessagePartDelta {
+                session_id: "ses_1".into(),
+                message_id: "msg_1".into(),
+                part_id: "prt_1".into(),
+                field: "text".into(),
+                delta: "hello".into(),
+            }
+        );
     }
 }

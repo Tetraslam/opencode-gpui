@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use gpui::{Bounds, Context, EntityInputHandler, Pixels, UTF16Selection, Window, point};
 
-use super::TextEditor;
+use super::{Changed, TextEditor};
 
 impl TextEditor {
     fn offset_from_utf16(&self, offset: usize) -> usize {
@@ -87,11 +87,13 @@ impl EntityInputHandler for TextEditor {
             .map(|range| self.range_from_utf16(range))
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
+        self.record_undo();
         self.content =
             (self.content[..range.start].to_owned() + new_text + &self.content[range.end..]).into();
         let cursor = range.start + new_text.len();
         self.selected_range = cursor..cursor;
         self.marked_range = None;
+        cx.emit(Changed);
         cx.notify();
     }
 
@@ -108,6 +110,7 @@ impl EntityInputHandler for TextEditor {
             .map(|range| self.range_from_utf16(range))
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
+        self.record_undo();
         self.content =
             (self.content[..range.start].to_owned() + new_text + &self.content[range.end..]).into();
         self.marked_range =
@@ -122,6 +125,7 @@ impl EntityInputHandler for TextEditor {
                 range.start + selected.start..range.start + selected.end
             },
         );
+        cx.emit(Changed);
         cx.notify();
     }
 
@@ -133,10 +137,16 @@ impl EntityInputHandler for TextEditor {
         _: &mut Context<Self>,
     ) -> Option<Bounds<Pixels>> {
         let range = self.range_from_utf16(&range_utf16);
-        let line = self.last_layout.as_ref()?;
+        let layout = self.last_layout.as_ref()?;
+        let start = layout.position_for_offset(range.start);
+        let end = layout.position_for_offset(range.end);
+        let scroll_y = layout.line_height * layout.scroll_row;
         Some(Bounds::from_corners(
-            point(bounds.left() + line.x_for_index(range.start), bounds.top()),
-            point(bounds.left() + line.x_for_index(range.end), bounds.bottom()),
+            point(bounds.left() + start.x, bounds.top() + start.y - scroll_y),
+            point(
+                bounds.left() + end.x.max(start.x),
+                bounds.top() + end.y + layout.line_height - scroll_y,
+            ),
         ))
     }
 
@@ -146,8 +156,9 @@ impl EntityInputHandler for TextEditor {
         _: &mut Window,
         _: &mut Context<Self>,
     ) -> Option<usize> {
-        let local = self.last_bounds?.localize(&point)?;
-        let index = self.last_layout.as_ref()?.index_for_x(point.x - local.x)?;
+        let bounds = self.last_bounds?;
+        let local = gpui::point(point.x - bounds.left(), point.y - bounds.top());
+        let index = self.last_layout.as_ref()?.closest_index(local);
         Some(self.offset_to_utf16(index))
     }
 }

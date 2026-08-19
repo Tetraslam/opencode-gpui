@@ -4,7 +4,7 @@ use url::Url;
 
 use crate::model::{MessageRecord, Session};
 
-use super::{ClientInner, CreateSession, Error, Prompt};
+use super::{ClientInner, CreateSession, Error, Prompt, SlashCommand};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,18 +22,35 @@ struct UpdateSessionBody<'a> {
 
 #[derive(Serialize)]
 struct PromptBody {
+    #[serde(rename = "messageID")]
+    message_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     model: Option<crate::model::ModelRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     agent: Option<String>,
-    parts: [TextPartInput; 1],
+    parts: Vec<PromptPartInput>,
 }
 
 #[derive(Serialize)]
-struct TextPartInput {
-    #[serde(rename = "type")]
-    kind: &'static str,
-    text: String,
+#[serde(tag = "type", rename_all = "lowercase")]
+enum PromptPartInput {
+    Text {
+        id: String,
+        text: String,
+    },
+    File {
+        mime: String,
+        filename: String,
+        url: String,
+    },
+}
+
+#[derive(Serialize)]
+struct CommandBody<'a> {
+    command: &'a str,
+    arguments: &'a str,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    parts: Vec<PromptPartInput>,
 }
 
 impl ClientInner {
@@ -81,14 +98,61 @@ impl ClientInner {
     pub(super) async fn prompt(&self, session_id: &str, prompt: Prompt) -> Result<(), Error> {
         let url = self.scoped_url(&["session", session_id, "prompt_async"])?;
         let body = PromptBody {
+            message_id: prompt.message_id,
             model: prompt.model,
             agent: prompt.agent,
-            parts: [TextPartInput {
-                kind: "text",
+            parts: std::iter::once(PromptPartInput::Text {
+                id: prompt.text_part_id,
                 text: prompt.text,
-            }],
+            })
+            .chain(prompt.files.into_iter().map(|file| PromptPartInput::File {
+                mime: file.mime,
+                filename: file.filename,
+                url: file.url,
+            }))
+            .collect(),
         };
         Self::send_empty(self.request_url_method(Method::POST, url).json(&body)).await
+    }
+
+    pub(super) async fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>, Error> {
+        let mut url = self.scoped_url(&["find", "file"])?;
+        url.query_pairs_mut()
+            .append_pair("query", query)
+            .append_pair("type", "file")
+            .append_pair("limit", &limit.to_string());
+        Self::send_json(self.request_url(url)).await
+    }
+
+    pub(super) async fn commands(&self) -> Result<Vec<SlashCommand>, Error> {
+        let url = self.scoped_url(&["command"])?;
+        Self::send_json(self.request_url(url)).await
+    }
+
+    pub(super) async fn command(
+        &self,
+        session_id: &str,
+        command: &str,
+        arguments: &str,
+        files: Vec<super::PromptFile>,
+    ) -> Result<(), Error> {
+        let url = self.scoped_url(&["session", session_id, "command"])?;
+        let request = self
+            .request_url_method(Method::POST, url)
+            .json(&CommandBody {
+                command,
+                arguments,
+                parts: files
+                    .into_iter()
+                    .map(|file| PromptPartInput::File {
+                        mime: file.mime,
+                        filename: file.filename,
+                        url: file.url,
+                    })
+                    .collect(),
+            });
+        let _: serde_json::Value = Self::send_json(request).await?;
+        Ok(())
     }
 
     pub(super) async fn get_messages(

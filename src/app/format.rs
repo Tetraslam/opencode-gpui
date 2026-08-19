@@ -4,10 +4,35 @@ use opencode_gpui::model::Session;
 
 pub(super) fn display_title(session: &Session) -> String {
     if session.title.trim().is_empty() {
-        "Untitled session".into()
+        "untitled session".into()
+    } else if let Some(timestamp) = session.title.strip_prefix("New session - ") {
+        compact_default_title(timestamp).unwrap_or_else(|| "new session".into())
     } else {
         session.title.clone()
     }
+}
+
+fn compact_default_title(timestamp: &str) -> Option<String> {
+    let month = match timestamp.get(5..7)? {
+        "01" => "jan",
+        "02" => "feb",
+        "03" => "mar",
+        "04" => "apr",
+        "05" => "may",
+        "06" => "jun",
+        "07" => "jul",
+        "08" => "aug",
+        "09" => "sep",
+        "10" => "oct",
+        "11" => "nov",
+        "12" => "dec",
+        _ => return None,
+    };
+    Some(format!(
+        "new session · {month} {} {}",
+        timestamp.get(8..10)?,
+        timestamp.get(11..16)?
+    ))
 }
 
 pub(super) fn relative_time(timestamp_ms: u64) -> String {

@@ -22,3 +22,14 @@ fn cursor_navigation_uses_grapheme_boundaries(cx: &mut TestAppContext) {
         assert_eq!(editor.previous_boundary(19), 1);
     });
 }
+
+#[gpui::test]
+fn word_navigation_skips_whitespace_and_preserves_unicode(cx: &mut TestAppContext) {
+    let editor = cx.new(|cx| TextEditor::new("placeholder", cx));
+    editor.update(cx, |editor, _| {
+        editor.content = "alpha  βeta.gamma".into();
+        assert_eq!(editor.next_word_boundary(0), 7);
+        assert_eq!(editor.previous_word_boundary(12), 7);
+        assert_eq!(editor.next_word_boundary(11), 12);
+    });
+}

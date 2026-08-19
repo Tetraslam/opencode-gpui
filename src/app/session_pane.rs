@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use gpui::{ClickEvent, Context, SharedString, div, prelude::*, px, rgb, uniform_list};
+use gpui::{
+    ClickEvent, Context, CursorStyle, MouseButton, Pixels, SharedString, div, prelude::*, px, rgb,
+    uniform_list,
+};
 use opencode_gpui::{
     event::SessionStatus,
     model::Session,
@@ -14,6 +17,7 @@ impl Workspace {
         session: &Session,
         selected: bool,
         status: Option<&SessionStatus>,
+        title_width: Pixels,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let title: SharedString = format::display_title(session).into();
@@ -28,7 +32,10 @@ impl Workspace {
 
         div()
             .id(SharedString::from(session.id.clone()))
+            .w_full()
             .h(px(ui_size::SESSION_ROW))
+            .overflow_hidden()
+            .bg(rgb(color::SURFACE))
             .flex()
             .items_center()
             .border_b_1()
@@ -48,7 +55,8 @@ impl Workspace {
                     .flex_1()
                     .flex()
                     .items_center()
-                    .px_2()
+                    .pl(px(10.0))
+                    .pr_3()
                     .gap_2()
                     .when(session.parent_id.is_some(), |row| {
                         row.child(
@@ -62,8 +70,8 @@ impl Workspace {
                     })
                     .child(
                         div()
-                            .min_w_0()
-                            .flex_1()
+                            .w(title_width)
+                            .flex_none()
                             .truncate()
                             .text_sm()
                             .text_color(rgb(if selected {
@@ -75,12 +83,12 @@ impl Workspace {
                     )
                     .child(
                         div()
-                            .w(px(34.0))
+                            .w(px(ui_size::AGE_COL))
                             .flex_none()
                             .text_right()
                             .font_family(MONO_FONT)
                             .text_xs()
-                            .text_color(rgb(color::TEXT_MUTED))
+                            .text_color(rgb(color::TEXT_DIM))
                             .child(age),
                     ),
             )
@@ -88,15 +96,17 @@ impl Workspace {
     }
 
     pub(super) fn render_sidebar(&mut self, cx: &mut Context<Self>) -> gpui::AnyElement {
-        let selected = self.timeline.session_id().map(ToOwned::to_owned);
+        let directory = self.active_directory().map(str::to_owned);
+        let selected = self
+            .active_tab()
+            .and_then(|tab| tab.timeline.session_id())
+            .map(ToOwned::to_owned);
         let statuses = Arc::clone(&self.statuses);
-        let count = match &self.server_state {
-            ServerState::Ready { sessions, .. } => sessions
-                .iter()
-                .filter(|session| session.parent_id.is_none())
-                .count(),
-            ServerState::Loading | ServerState::Failed(_) => 0,
-        };
+        let pane_width = self.session_pane_width;
+        let title_width = (pane_width - px(72.0)).max(px(80.0));
+        let count = directory
+            .as_deref()
+            .map_or(0, |directory| self.directory_session_count(directory));
         let content = match &self.server_state {
             ServerState::Loading => centered_message("connecting to opencode"),
             ServerState::Failed(error) => div()
@@ -121,11 +131,15 @@ impl Workspace {
                 .into_any_element(),
             ServerState::Ready { sessions, .. } => {
                 let sessions = Arc::clone(sessions);
+                let directory = directory.unwrap_or_default();
                 let roots = Arc::new(
                     sessions
                         .iter()
                         .enumerate()
-                        .filter_map(|(index, session)| session.parent_id.is_none().then_some(index))
+                        .filter_map(|(index, session)| {
+                            (session.parent_id.is_none() && session.directory == directory)
+                                .then_some(index)
+                        })
                         .collect::<Vec<_>>(),
                 );
                 uniform_list(
@@ -140,6 +154,7 @@ impl Workspace {
                                         session,
                                         selected.as_deref() == Some(session.id.as_str()),
                                         statuses.get(&session.id),
+                                        title_width,
                                         cx,
                                     )
                                 })
@@ -153,15 +168,34 @@ impl Workspace {
         };
 
         div()
-            .w(px(ui_size::SESSION_PANE))
+            .w(pane_width)
             .h_full()
+            .overflow_hidden()
             .flex()
             .flex_col()
             .flex_none()
             .border_r_1()
             .border_color(rgb(color::BORDER))
-            .child(pane_header("SESSIONS", format!("{count:>4}")))
+            .child(pane_header("sessions", format!("{count:>4}")))
             .child(div().min_h_0().flex_1().child(content))
+            .into_any_element()
+    }
+
+    pub(super) fn render_sidebar_resize_handle(cx: &mut Context<Self>) -> gpui::AnyElement {
+        div()
+            .id("session-pane-resize")
+            .w(px(5.0))
+            .h_full()
+            .flex_none()
+            .cursor(CursorStyle::ResizeLeftRight)
+            .hover(|handle| handle.bg(rgb(color::BORDER)))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|workspace, _, _, cx| {
+                    workspace.pane_resize = super::pane_resize::PaneResize::Sessions;
+                    cx.notify();
+                }),
+            )
             .into_any_element()
     }
 }
@@ -173,7 +207,7 @@ fn pane_header(label: &'static str, value: String) -> gpui::AnyElement {
         .flex()
         .items_center()
         .justify_between()
-        .px_2()
+        .px_3()
         .border_b_1()
         .border_color(rgb(color::BORDER))
         .bg(rgb(color::SURFACE))

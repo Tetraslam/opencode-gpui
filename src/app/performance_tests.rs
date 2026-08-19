@@ -1,0 +1,51 @@
+use std::{
+    hint::black_box,
+    time::{Duration, Instant},
+};
+
+use super::*;
+use crate::app::PartSelection;
+
+#[gpui::test]
+fn direct_interaction_paths_stay_sub_millisecond(cx: &mut TestAppContext) {
+    let sessions = (0..1_000)
+        .map(|index| {
+            session_in(
+                &format!("session-{index}"),
+                if index % 2 == 0 { "/work/a" } else { "/work/b" },
+                index,
+            )
+        })
+        .collect();
+    let workspace = workspace(cx, sessions, TimelineState::Empty);
+    workspace.update(cx, |workspace, cx| {
+        workspace.tabs[0].directory = "/work/a".into();
+        workspace.open_directory("/work/b".into(), cx);
+        let selection = PartSelection {
+            message_id: "message".into(),
+            part_id: "part".into(),
+        };
+        let mut samples = Vec::with_capacity(20_000);
+        for iteration in 0..20_000 {
+            let started = Instant::now();
+            workspace.active_tab = iteration % 2;
+            let tab = &mut workspace.tabs[workspace.active_tab];
+            if !tab.expanded_parts.remove(&selection) {
+                tab.expanded_parts.insert(selection.clone());
+            }
+            black_box(workspace.directory_session_count(if iteration % 2 == 0 {
+                "/work/a"
+            } else {
+                "/work/b"
+            }));
+            samples.push(started.elapsed());
+        }
+        samples.sort_unstable();
+        let p99 = samples[samples.len() * 99 / 100];
+        eprintln!("direct interaction p99: {p99:?}");
+        assert!(
+            p99 < Duration::from_millis(1),
+            "direct interaction p99 {p99:?} exceeded 1 ms"
+        );
+    });
+}

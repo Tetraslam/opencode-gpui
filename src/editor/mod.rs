@@ -1,6 +1,12 @@
+mod clipboard;
+mod completion;
 mod element;
+mod history;
 mod input_handler;
 mod keys;
+mod layout;
+mod navigation;
+mod word;
 
 #[cfg(test)]
 mod tests;
@@ -9,16 +15,16 @@ pub use keys::init;
 
 use std::ops::Range;
 
+use crate::theme::{MONO_FONT, color};
 use gpui::{
     App, ClipboardItem, Context, CursorStyle, EntityInputHandler, EventEmitter, FocusHandle,
-    Focusable, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point,
-    ShapedLine, SharedString, Window, actions, div, prelude::*, px, rgb,
+    Focusable, Image, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Point,
+    SharedString, Window, actions, div, prelude::*, px, rgb,
 };
-use unicode_segmentation::UnicodeSegmentation;
-
-use crate::theme::{MONO_FONT, color};
 
 use element::TextElement;
+
+const MAX_VISIBLE_LINES: usize = 8;
 
 actions!(
     opencode_editor,
@@ -29,12 +35,25 @@ actions!(
         Right,
         SelectLeft,
         SelectRight,
+        WordLeft,
+        WordRight,
+        SelectWordLeft,
+        SelectWordRight,
+        DeleteWordBackward,
+        DeleteWordForward,
+        SelectHome,
+        SelectEnd,
+        Undo,
+        Redo,
         SelectAll,
         Home,
         End,
+        DocumentHome,
+        DocumentEnd,
         Paste,
         Cut,
         Copy,
+        Newline,
         SubmitAction,
     ]
 );
@@ -44,6 +63,14 @@ pub struct Submit {
     pub text: String,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Changed;
+
+#[derive(Clone, Debug)]
+pub struct PastedImage {
+    pub image: Image,
+}
+
 pub struct TextEditor {
     pub(super) focus_handle: FocusHandle,
     pub(super) content: SharedString,
@@ -51,12 +78,25 @@ pub struct TextEditor {
     pub(super) selected_range: Range<usize>,
     pub(super) selection_reversed: bool,
     pub(super) marked_range: Option<Range<usize>>,
-    pub(super) last_layout: Option<ShapedLine>,
+    pub(super) last_layout: Option<layout::EditorLayout>,
     pub(super) last_bounds: Option<gpui::Bounds<Pixels>>,
+    pub(super) visible_lines: usize,
     pub(super) is_selecting: bool,
+    clear_on_submit: bool,
+    undo_stack: Vec<EditorSnapshot>,
+    redo_stack: Vec<EditorSnapshot>,
+}
+
+#[derive(Clone)]
+pub(super) struct EditorSnapshot {
+    content: SharedString,
+    selected_range: Range<usize>,
+    selection_reversed: bool,
 }
 
 impl EventEmitter<Submit> for TextEditor {}
+impl EventEmitter<Changed> for TextEditor {}
+impl EventEmitter<PastedImage> for TextEditor {}
 
 impl TextEditor {
     #[must_use]
@@ -70,7 +110,11 @@ impl TextEditor {
             marked_range: None,
             last_layout: None,
             last_bounds: None,
+            visible_lines: 1,
             is_selecting: false,
+            clear_on_submit: true,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
         }
     }
 
@@ -83,55 +127,16 @@ impl TextEditor {
         self.content = "".into();
         self.selected_range = 0..0;
         self.marked_range = None;
+        cx.emit(Changed);
         cx.notify();
     }
 
     fn submit(&mut self, _: &SubmitAction, _: &mut Window, cx: &mut Context<Self>) {
-        if self.content.trim().is_empty() {
-            return;
-        }
         let text = self.content.to_string();
-        self.clear(cx);
+        if self.clear_on_submit {
+            self.clear(cx);
+        }
         cx.emit(Submit { text });
-    }
-
-    fn left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
-        let offset = if self.selected_range.is_empty() {
-            self.previous_boundary(self.cursor_offset())
-        } else {
-            self.selected_range.start
-        };
-        self.move_to(offset, cx);
-    }
-
-    fn right(&mut self, _: &Right, _: &mut Window, cx: &mut Context<Self>) {
-        let offset = if self.selected_range.is_empty() {
-            self.next_boundary(self.selected_range.end)
-        } else {
-            self.selected_range.end
-        };
-        self.move_to(offset, cx);
-    }
-
-    fn select_left(&mut self, _: &SelectLeft, _: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.previous_boundary(self.cursor_offset()), cx);
-    }
-
-    fn select_right(&mut self, _: &SelectRight, _: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.next_boundary(self.cursor_offset()), cx);
-    }
-
-    fn select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(0, cx);
-        self.select_to(self.content.len(), cx);
-    }
-
-    fn home(&mut self, _: &Home, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(0, cx);
-    }
-
-    fn end(&mut self, _: &End, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.content.len(), cx);
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
@@ -146,12 +151,6 @@ impl TextEditor {
             self.select_to(self.next_boundary(self.cursor_offset()), cx);
         }
         self.replace_text_in_range(None, "", window, cx);
-    }
-
-    fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-            self.replace_text_in_range(None, &text.replace('\n', " "), window, cx);
-        }
     }
 
     fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
@@ -195,14 +194,6 @@ impl TextEditor {
         cx.notify();
     }
 
-    pub(super) fn cursor_offset(&self) -> usize {
-        if self.selection_reversed {
-            self.selected_range.start
-        } else {
-            self.selected_range.end
-        }
-    }
-
     fn select_to(&mut self, offset: usize, cx: &mut Context<Self>) {
         if self.selection_reversed {
             self.selected_range.start = offset;
@@ -216,26 +207,11 @@ impl TextEditor {
         cx.notify();
     }
 
-    fn previous_boundary(&self, offset: usize) -> usize {
-        self.content
-            .grapheme_indices(true)
-            .rev()
-            .find_map(|(index, _)| (index < offset).then_some(index))
-            .unwrap_or(0)
-    }
-
-    fn next_boundary(&self, offset: usize) -> usize {
-        self.content
-            .grapheme_indices(true)
-            .find_map(|(index, _)| (index > offset).then_some(index))
-            .unwrap_or(self.content.len())
-    }
-
     fn index_for_mouse_position(&self, position: Point<Pixels>) -> usize {
         if self.content.is_empty() {
             return 0;
         }
-        let (Some(bounds), Some(line)) = (&self.last_bounds, &self.last_layout) else {
+        let (Some(bounds), Some(layout)) = (&self.last_bounds, &self.last_layout) else {
             return 0;
         };
         if position.y < bounds.top() {
@@ -243,7 +219,7 @@ impl TextEditor {
         } else if position.y > bounds.bottom() {
             self.content.len()
         } else {
-            line.closest_index_for_x(position.x - bounds.left())
+            layout.closest_index(position - bounds.origin)
         }
     }
 }
@@ -260,18 +236,31 @@ impl gpui::Render for TextEditor {
             .on_action(cx.listener(Self::right))
             .on_action(cx.listener(Self::select_left))
             .on_action(cx.listener(Self::select_right))
+            .on_action(cx.listener(Self::word_left))
+            .on_action(cx.listener(Self::word_right))
+            .on_action(cx.listener(Self::select_word_left))
+            .on_action(cx.listener(Self::select_word_right))
+            .on_action(cx.listener(Self::delete_word_backward))
+            .on_action(cx.listener(Self::delete_word_forward))
+            .on_action(cx.listener(Self::undo))
+            .on_action(cx.listener(Self::redo))
             .on_action(cx.listener(Self::select_all))
             .on_action(cx.listener(Self::home))
             .on_action(cx.listener(Self::end))
+            .on_action(cx.listener(Self::document_home))
+            .on_action(cx.listener(Self::document_end))
+            .on_action(cx.listener(Self::select_home))
+            .on_action(cx.listener(Self::select_end))
             .on_action(cx.listener(Self::paste))
             .on_action(cx.listener(Self::cut))
             .on_action(cx.listener(Self::copy))
+            .on_action(cx.listener(Self::newline))
             .on_action(cx.listener(Self::submit))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
             .on_mouse_move(cx.listener(Self::on_mouse_move))
-            .h(px(34.0))
+            .min_h(px(34.0))
             .w_full()
             .px_2()
             .flex()

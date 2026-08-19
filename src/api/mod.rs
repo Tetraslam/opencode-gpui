@@ -1,3 +1,4 @@
+mod completion;
 mod request;
 mod runtime;
 mod stream;
@@ -54,9 +55,26 @@ pub struct CreateSession {
 
 #[derive(Clone, Debug)]
 pub struct Prompt {
+    pub message_id: String,
+    pub text_part_id: String,
     pub text: String,
     pub model: Option<crate::model::ModelRef>,
     pub agent: Option<String>,
+    pub files: Vec<PromptFile>,
+}
+
+#[derive(Clone, Debug)]
+pub struct PromptFile {
+    pub mime: String,
+    pub filename: String,
+    pub url: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct SlashCommand {
+    pub name: String,
+    pub description: Option<String>,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -101,6 +119,21 @@ impl Client {
                 runtime: Runtime::new()?,
             }),
         })
+    }
+
+    /// Returns a client sharing this connection pool and runtime, scoped to one directory.
+    #[must_use]
+    pub fn scoped(&self, directory: String) -> Self {
+        Self {
+            inner: Arc::new(ClientInner {
+                base_url: self.inner.base_url.clone(),
+                directory: Some(directory),
+                username: self.inner.username.clone(),
+                password: self.inner.password.clone(),
+                http: self.inner.http.clone(),
+                runtime: self.inner.runtime.clone(),
+            }),
+        }
     }
 
     /// Fetches health and session metadata.

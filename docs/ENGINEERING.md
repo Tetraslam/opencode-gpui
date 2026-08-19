@@ -12,4 +12,6 @@ These are repository invariants, not suggestions.
 - Every feature has a typed contract test and, where user-facing, an actual-usage smoke test.
 - The OpenCode server owns execution, credentials, permissions, plugins, MCP, persistence, and snapshots.
 - The client never reads OpenCode's database directly or duplicates server-side permission enforcement.
+- OpenCode's current TUI is the default behavioral and information-design reference. Deviations require a concrete desktop-native, performance, accessibility, or product-taste reason and should be based on upstream source rather than memory.
+- Native keyboard behavior, readable hierarchy, bounded overflow, correct streaming state, and interaction performance are baseline correctness from the first implementation.
 - `cargo fmt`, strict Clippy, tests, and release builds must pass before each push.

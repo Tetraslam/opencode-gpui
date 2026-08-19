@@ -5,48 +5,17 @@ use std::{
     time::Duration,
 };
 
-use super::{Client, CreateSession, Prompt};
+use super::{Client, CreateSession, Prompt, PromptFile};
 
 #[test]
 fn session_mutations_match_the_server_contract() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
-        for index in 0..6 {
+        for index in 0..7 {
             let (mut stream, _) = listener.accept().unwrap();
             let request = read_request(&mut stream);
-            let (expected, body, status) = match index {
-                0 => (
-                    "POST /session?directory=%2Fworkspace ",
-                    session_json("ses_new", "new"),
-                    "200 OK",
-                ),
-                1 => (
-                    "PATCH /session/ses_new?directory=%2Fworkspace ",
-                    session_json("ses_new", "renamed"),
-                    "200 OK",
-                ),
-                2 => (
-                    "GET /session/ses_new/children?directory=%2Fworkspace ",
-                    "[]".into(),
-                    "200 OK",
-                ),
-                3 => (
-                    "POST /session/ses_new/prompt_async?directory=%2Fworkspace ",
-                    String::new(),
-                    "204 No Content",
-                ),
-                4 => (
-                    "POST /session/ses_new/abort?directory=%2Fworkspace ",
-                    "true".into(),
-                    "200 OK",
-                ),
-                _ => (
-                    "DELETE /session/ses_new?directory=%2Fworkspace ",
-                    "true".into(),
-                    "200 OK",
-                ),
-            };
+            let (expected, body, status) = request_expectation(index);
             assert!(
                 request.starts_with(expected),
                 "unexpected request: {request}"
@@ -58,7 +27,15 @@ fn session_mutations_match_the_server_contract() {
                 assert!(request.contains(r#"{"title":"renamed"}"#));
             }
             if index == 3 {
-                assert!(request.contains(r#""type":"text","text":"hello""#));
+                assert!(request.contains(r#""messageID":"msg_test""#));
+                assert!(request.contains(r#""type":"text","id":"prt_test","text":"hello""#));
+                assert!(request.contains(
+                    r#""type":"file","mime":"image/png","filename":"clipboard.png","url":"data:image/png;base64,AQID""#
+                ));
+            }
+            if index == 4 {
+                assert!(request.contains(r#""command":"review","arguments":"this""#));
+                assert!(request.contains(r#""mime":"image/png""#));
             }
             write_response(&mut stream, status, &body);
         }
@@ -87,10 +64,30 @@ fn session_mutations_match_the_server_contract() {
             .prompt(
                 "ses_new",
                 Prompt {
+                    message_id: "msg_test".into(),
+                    text_part_id: "prt_test".into(),
                     text: "hello".into(),
                     model: None,
                     agent: None,
+                    files: vec![PromptFile {
+                        mime: "image/png".into(),
+                        filename: "clipboard.png".into(),
+                        url: "data:image/png;base64,AQID".into(),
+                    }],
                 },
+            )
+            .await
+            .unwrap();
+        client
+            .command(
+                "ses_new",
+                "review",
+                "this",
+                vec![PromptFile {
+                    mime: "image/png".into(),
+                    filename: "clipboard.png".into(),
+                    url: "data:image/png;base64,AQID".into(),
+                }],
             )
             .await
             .unwrap();
@@ -98,6 +95,46 @@ fn session_mutations_match_the_server_contract() {
         assert!(client.delete_session("ses_new").await.unwrap());
     });
     server.join().unwrap();
+}
+
+fn request_expectation(index: usize) -> (&'static str, String, &'static str) {
+    match index {
+        0 => (
+            "POST /session?directory=%2Fworkspace ",
+            session_json("ses_new", "new"),
+            "200 OK",
+        ),
+        1 => (
+            "PATCH /session/ses_new?directory=%2Fworkspace ",
+            session_json("ses_new", "renamed"),
+            "200 OK",
+        ),
+        2 => (
+            "GET /session/ses_new/children?directory=%2Fworkspace ",
+            "[]".into(),
+            "200 OK",
+        ),
+        3 => (
+            "POST /session/ses_new/prompt_async?directory=%2Fworkspace ",
+            String::new(),
+            "204 No Content",
+        ),
+        4 => (
+            "POST /session/ses_new/command?directory=%2Fworkspace ",
+            "{}".into(),
+            "200 OK",
+        ),
+        5 => (
+            "POST /session/ses_new/abort?directory=%2Fworkspace ",
+            "true".into(),
+            "200 OK",
+        ),
+        _ => (
+            "DELETE /session/ses_new?directory=%2Fworkspace ",
+            "true".into(),
+            "200 OK",
+        ),
+    }
 }
 
 fn read_request(stream: &mut TcpStream) -> String {
