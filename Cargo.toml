@@ -11,11 +11,12 @@ gpui = "0.2.2"
 eventsource-stream = "0.2.3"
 futures-util = "0.3.34"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "query", "rustls", "stream"] }
-serde = { version = "1.0.228", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde_json = "1.0.149"
 thiserror = "2.0.18"
 tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "sync"] }
 url = "2.5.8"
+unicode-segmentation = "1.12.0"
 
 [dev-dependencies]
 pollster = "0.4.0"

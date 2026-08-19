@@ -1,6 +1,6 @@
-use std::cmp::Reverse;
+use std::{cmp::Reverse, sync::Arc};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -118,7 +118,7 @@ pub struct MessageTime {
     pub completed: Option<u64>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelRef {
     #[serde(rename = "providerID")]
@@ -128,7 +128,7 @@ pub struct ModelRef {
 }
 
 /// A message part that preserves fields unknown to this client.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Part {
     pub id: String,
@@ -139,7 +139,7 @@ pub struct Part {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(flatten)]
-    pub data: Map<String, Value>,
+    pub data: Arc<Map<String, Value>>,
 }
 
 impl Part {

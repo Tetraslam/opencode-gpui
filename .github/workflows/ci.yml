@@ -21,6 +21,7 @@ jobs:
       - name: Install GPUI system dependencies
         run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - run: cargo fmt --all -- --check
+      - run: bash scripts/check-source-size.sh
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-targets --all-features
       - run: cargo build --release
