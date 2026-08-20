@@ -19,6 +19,11 @@ url = "2.5.8"
 unicode-segmentation = "1.12.0"
 pulldown-cmark = "0.13.0"
 base64 = "0.22.1"
+sebastian = { version = "0.6.0", default-features = false }
+ratex-parser = "0.1.14"
+ratex-layout = "0.1.14"
+ratex-svg = { version = "0.1.14", features = ["embed-fonts"] }
+ratex-types = "0.1.14"
 
 [dev-dependencies]
 gpui = { version = "0.2.2", features = ["test-support"] }

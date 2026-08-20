@@ -72,6 +72,7 @@ impl Workspace {
                     selected_part: tab.selected_part.as_ref(),
                     detail_cache: &tab.detail_cache,
                     markdown_cache: &tab.markdown.documents,
+                    markdown_renders: &tab.markdown_renders,
                     image_cache: &tab.images.images,
                     directory: &tab.directory,
                 };
@@ -193,7 +194,12 @@ impl Workspace {
                 .filter(|cached| cached.source == part.text().unwrap_or_default())
                 .map(|cached| cached.document.as_ref());
             return Some(Self::render_text_part(
-                part, selection, selected, document, cx,
+                part,
+                selection,
+                selected,
+                document,
+                state.markdown_renders,
+                cx,
             ));
         }
         if part.kind == "file"

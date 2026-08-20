@@ -90,6 +90,7 @@ impl Workspace {
                     if stale {
                         workspace.refresh_markdown(&task_directory, cx);
                     }
+                    workspace.refresh_markdown_renders(&task_directory, cx);
                     cx.notify();
                 });
             })

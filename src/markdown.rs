@@ -1,77 +1,12 @@
-use std::ops::Range;
-
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+
+pub use crate::markdown_types::{
+    Block, Document, Inline, InlineStyle, RenderKind, RenderRequest, Span, TaskState,
+};
 
 #[cfg(test)]
 #[path = "markdown_tests.rs"]
 mod tests;
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Document {
-    pub blocks: Vec<Block>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Block {
-    Heading {
-        level: u8,
-        content: Inline,
-    },
-    Paragraph {
-        content: Inline,
-        quoted: bool,
-    },
-    Code {
-        language: String,
-        content: String,
-    },
-    Diagram {
-        language: String,
-        content: String,
-    },
-    List {
-        start: Option<u64>,
-        items: Vec<Inline>,
-    },
-    Table {
-        header: Vec<Inline>,
-        rows: Vec<Vec<Inline>>,
-    },
-    Rule,
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Inline {
-    pub text: String,
-    pub spans: Vec<Span>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Span {
-    pub range: Range<usize>,
-    pub style: InlineStyle,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[allow(clippy::struct_excessive_bools)]
-pub struct InlineStyle {
-    pub bold: bool,
-    pub italic: bool,
-    pub strike: bool,
-    pub code: bool,
-    pub path: bool,
-    pub kbd: bool,
-    pub task: Option<TaskState>,
-    pub link: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TaskState {
-    Pending,
-    Active,
-    Checked,
-    Cancelled,
-}
 
 #[derive(Default)]
 struct Builder {
@@ -96,9 +31,11 @@ pub fn parse(source: &str) -> Document {
     let options = Options::ENABLE_TABLES
         | Options::ENABLE_STRIKETHROUGH
         | Options::ENABLE_TASKLISTS
-        | Options::ENABLE_FOOTNOTES;
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_MATH;
+    let normalized = crate::markdown_math::normalize_delimiters(source);
     let mut builder = Builder::default();
-    for event in Parser::new_ext(source, options) {
+    for event in Parser::new_ext(&normalized, options) {
         builder.event(event);
     }
     builder.finish();
@@ -126,6 +63,8 @@ impl Builder {
                 self.push_text(&text);
                 self.style.code = previous;
             }
+            Event::InlineMath(math) => self.push_math(&math),
+            Event::DisplayMath(math) => self.push_display_math(&math),
             Event::SoftBreak => self.push_text(" "),
             Event::HardBreak => self.push_text("\n"),
             Event::Rule => self.document.blocks.push(Block::Rule),
@@ -139,7 +78,6 @@ impl Builder {
                 self.style.task = None;
             }
             Event::FootnoteReference(reference) => self.push_text(&format!("[{reference}]")),
-            _ => {}
         }
     }
 
@@ -221,6 +159,23 @@ impl Builder {
                 style: self.style.clone(),
             });
         }
+    }
+
+    fn push_math(&mut self, math: &str) {
+        let previous = self.style.math.replace(math.to_owned());
+        self.push_text(&format!("${math}$"));
+        self.style.math = previous;
+    }
+
+    fn push_display_math(&mut self, math: &str) {
+        if self.list.is_some() || self.table.is_some() || self.heading.is_some() {
+            self.push_math(math);
+            return;
+        }
+        self.flush_paragraph();
+        self.document.blocks.push(Block::Math {
+            content: math.to_owned(),
+        });
     }
 
     fn flush_paragraph(&mut self) {

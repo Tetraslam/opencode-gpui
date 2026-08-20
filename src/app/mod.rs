@@ -25,6 +25,10 @@ mod image_cache;
 mod image_row;
 mod inspector;
 mod markdown_cache;
+mod markdown_code_view;
+mod markdown_inline_view;
+mod markdown_render_cache;
+mod markdown_tasks;
 mod markdown_view;
 mod navigation;
 mod navigation_keys;
@@ -105,26 +109,6 @@ pub(super) enum TimelineState {
     },
 }
 
-impl TimelineState {
-    pub(super) fn session_id(&self) -> Option<&str> {
-        match self {
-            Self::Empty => None,
-            Self::Loading { session_id, .. }
-            | Self::Ready { session_id, .. }
-            | Self::Failed { session_id, .. } => Some(session_id),
-        }
-    }
-
-    pub(super) fn title(&self) -> Option<SharedString> {
-        match self {
-            Self::Empty => None,
-            Self::Loading { title, .. }
-            | Self::Ready { title, .. }
-            | Self::Failed { title, .. } => Some(title.clone()),
-        }
-    }
-}
-
 pub struct Workspace {
     pub(super) focus_handle: FocusHandle,
     pub(super) client: Option<Client>,
@@ -189,6 +173,7 @@ impl Workspace {
         tab.preparing_parts.clear();
         tab.detail_tasks.clear();
         tab.markdown = markdown_cache::MarkdownCache::default();
+        tab.markdown_renders = markdown_render_cache::MarkdownRenderCache::default();
         tab.images = image_cache::ImageCache::default();
         tab.message_limit = MESSAGE_PAGE;
         tab.history_loading = false;

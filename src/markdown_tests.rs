@@ -37,3 +37,42 @@ fn identifies_diagram_fences() {
     let document = parse("```mermaid\ngraph TD; A-->B\n```");
     assert!(matches!(document.blocks[0], Block::Diagram { .. }));
 }
+
+#[test]
+fn parses_dollar_and_tex_math_delimiters() {
+    let document = parse("before $x^2$ and \\(y+1\\)\n\n$$z=3$$\n\n\\[w=4\\]");
+
+    let Block::Paragraph { content, .. } = &document.blocks[0] else {
+        panic!("expected paragraph");
+    };
+    let formulas = content
+        .spans
+        .iter()
+        .filter_map(|span| span.style.math.as_deref())
+        .collect::<Vec<_>>();
+    assert_eq!(formulas, ["x^2", "y+1"]);
+    assert_eq!(content.text, "before $x^2$ and $y+1$");
+    assert!(matches!(
+        &document.blocks[1],
+        Block::Math { content } if content == "z=3"
+    ));
+    assert!(matches!(
+        &document.blocks[2],
+        Block::Math { content } if content == "w=4"
+    ));
+}
+
+#[test]
+fn exposes_deduplicated_render_requests() {
+    let document = parse("$x$ and $x$\n\n```mermaid\nflowchart LR\nA-->B\n```");
+    let requests = document.render_requests();
+    assert_eq!(requests.len(), 2);
+    assert!(
+        requests
+            .iter()
+            .any(|request| { request.kind == RenderKind::MathInline && request.source == "x" })
+    );
+    assert!(requests.iter().any(|request| {
+        request.kind == RenderKind::Mermaid && request.source.contains("flowchart")
+    }));
+}

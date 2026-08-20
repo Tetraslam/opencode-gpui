@@ -13,7 +13,7 @@ pub(crate) fn decorate(document: &mut Document) {
                 header.iter_mut().for_each(decorate_inline);
                 rows.iter_mut().flatten().for_each(decorate_inline);
             }
-            Block::Code { .. } | Block::Diagram { .. } | Block::Rule => {}
+            Block::Code { .. } | Block::Diagram { .. } | Block::Math { .. } | Block::Rule => {}
         }
     }
 }

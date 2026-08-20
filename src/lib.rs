@@ -3,5 +3,8 @@ pub mod editor;
 pub mod event;
 pub mod markdown;
 mod markdown_inline;
+mod markdown_math;
+mod markdown_types;
 pub mod model;
+pub mod rich_render;
 pub mod theme;

@@ -1,24 +1,31 @@
-use gpui::{
-    FontStyle, FontWeight, HighlightStyle, StrikethroughStyle, StyledText, UnderlineStyle, div,
-    prelude::*, px, rgb,
-};
+use gpui::{FontWeight, div, prelude::*, px, rgb};
 use opencode_gpui::{
-    markdown::{Block, Document, Inline, TaskState},
-    theme::{MONO_FONT, color},
+    markdown::{Block, Document, Inline},
+    theme::color,
 };
 
-pub(super) fn render_document(document: &Document) -> gpui::AnyElement {
+use super::markdown_render_cache::MarkdownRenderCache;
+
+pub(super) fn render_document(
+    document: &Document,
+    renders: &MarkdownRenderCache,
+) -> gpui::AnyElement {
     div()
         .min_w_0()
         .flex_1()
         .flex()
         .flex_col()
         .gap_2()
-        .children(document.blocks.iter().map(render_block))
+        .children(
+            document
+                .blocks
+                .iter()
+                .map(|block| render_block(block, renders)),
+        )
         .into_any_element()
 }
 
-fn render_block(block: &Block) -> gpui::AnyElement {
+fn render_block(block: &Block, renders: &MarkdownRenderCache) -> gpui::AnyElement {
     match block {
         Block::Heading { level, content } => div()
             .mt_1()
@@ -27,7 +34,7 @@ fn render_block(block: &Block) -> gpui::AnyElement {
             .when(*level <= 1, gpui::Styled::text_lg)
             .when(*level == 2, gpui::Styled::text_base)
             .when(*level >= 3, gpui::Styled::text_sm)
-            .child(render_inline(content))
+            .child(super::markdown_inline_view::render_inline(content, renders))
             .into_any_element(),
         Block::Paragraph { content, quoted } => div()
             .min_w_0()
@@ -42,12 +49,17 @@ fn render_block(block: &Block) -> gpui::AnyElement {
                     .border_color(rgb(color::ACCENT))
                     .text_color(rgb(color::TEXT_DIM))
             })
-            .child(render_inline(content))
+            .child(super::markdown_inline_view::render_inline(content, renders))
             .into_any_element(),
-        Block::Code { language, content } => render_code(language, content, false),
-        Block::Diagram { language, content } => render_code(language, content, true),
-        Block::List { start, items } => render_list(*start, items),
-        Block::Table { header, rows } => render_table(header, rows),
+        Block::Code { language, content } => {
+            super::markdown_code_view::render_code(language, content, false)
+        }
+        Block::Diagram { language, content } => {
+            super::markdown_code_view::render_diagram(language, content, renders)
+        }
+        Block::Math { content } => super::markdown_code_view::render_math(content, renders),
+        Block::List { start, items } => render_list(*start, items, renders),
+        Block::Table { header, rows } => render_table(header, rows, renders),
         Block::Rule => div()
             .my_1()
             .h(px(1.0))
@@ -57,146 +69,73 @@ fn render_block(block: &Block) -> gpui::AnyElement {
     }
 }
 
-fn render_inline(content: &Inline) -> StyledText {
-    let highlights = content.spans.iter().map(|span| {
-        let style = &span.style;
-        let semantic_color = style
-            .link
-            .as_ref()
-            .map(|_| color::BLUE)
-            .or(style.path.then_some(color::CYAN))
-            .or(style.code.then_some(color::GREEN))
-            .or(style.italic.then_some(color::YELLOW))
-            .or(style.task.map(task_color));
-        let highlight = HighlightStyle {
-            color: semantic_color.map(|value| rgb(value).into()),
-            font_weight: (style.bold || style.kbd).then_some(FontWeight::BOLD),
-            font_style: style.italic.then_some(FontStyle::Italic),
-            background_color: (style.code || style.kbd || style.path)
-                .then_some(rgb(color::ELEVATED).into()),
-            underline: style.link.as_ref().map(|_| UnderlineStyle {
-                thickness: px(1.0),
-                color: Some(rgb(color::BLUE).into()),
-                wavy: false,
-            }),
-            strikethrough: style.strike.then_some(StrikethroughStyle {
-                thickness: px(1.0),
-                color: Some(rgb(color::TEXT_MUTED).into()),
-            }),
-            fade_out: None,
-        };
-        (span.range.clone(), highlight)
-    });
-    StyledText::new(content.text.clone()).with_highlights(highlights)
-}
-
-const fn task_color(state: TaskState) -> u32 {
-    match state {
-        TaskState::Checked => color::GREEN,
-        TaskState::Active => color::YELLOW,
-        TaskState::Pending => color::TEXT_DIM,
-        TaskState::Cancelled => color::TEXT_MUTED,
-    }
-}
-
-fn render_code(language: &str, content: &str, diagram: bool) -> gpui::AnyElement {
-    let title = if language.is_empty() {
-        "code".to_owned()
-    } else if diagram {
-        format!("{language} diagram")
-    } else {
-        language.to_owned()
-    };
-    div()
-        .overflow_hidden()
-        .rounded_sm()
-        .border_1()
-        .border_color(rgb(if diagram {
-            color::ACCENT
-        } else {
-            color::BORDER
-        }))
-        .bg(rgb(color::SURFACE))
-        .child(
-            div()
-                .px_3()
-                .py_1()
-                .border_b_1()
-                .border_color(rgb(color::BORDER_SUBTLE))
-                .font_family(MONO_FONT)
-                .text_xs()
-                .text_color(rgb(if diagram {
-                    color::ACCENT
-                } else {
-                    color::TEXT_MUTED
-                }))
-                .child(title),
-        )
-        .child(
-            div()
-                .px_3()
-                .py_2()
-                .whitespace_normal()
-                .font_family(MONO_FONT)
-                .text_xs()
-                .line_height(px(18.0))
-                .text_color(rgb(color::TEXT))
-                .child(content.to_owned()),
-        )
-        .into_any_element()
-}
-
-fn render_list(start: Option<u64>, items: &[Inline]) -> gpui::AnyElement {
+fn render_list(
+    start: Option<u64>,
+    items: &[Inline],
+    renders: &MarkdownRenderCache,
+) -> gpui::AnyElement {
     div()
         .flex()
         .flex_col()
         .gap_1()
         .children(items.iter().enumerate().map(|(index, item)| {
-            let marker = start.map_or_else(
-                || "•".to_owned(),
-                |start| format!("{}.", start + index as u64),
+            let task = super::markdown_tasks::item(item);
+            let marker = task.as_ref().map_or_else(
+                || {
+                    start.map_or_else(
+                        || "•".to_owned(),
+                        |start| format!("{}.", start + index as u64),
+                    )
+                },
+                |(state, _)| super::markdown_tasks::marker(*state).to_owned(),
             );
+            let content = task.as_ref().map_or(item, |(_, content)| content);
             div()
                 .flex()
                 .gap_2()
                 .text_sm()
                 .line_height(px(20.0))
                 .text_color(rgb(color::TEXT))
-                .child(
-                    div()
-                        .w(px(24.0))
-                        .flex_none()
-                        .text_right()
-                        .text_color(rgb(color::TEXT_MUTED))
-                        .child(marker),
-                )
+                .child(super::markdown_tasks::checkbox(
+                    task.as_ref().map(|(state, _)| *state),
+                    marker,
+                ))
                 .child(
                     div()
                         .min_w_0()
                         .flex_1()
                         .whitespace_normal()
-                        .child(render_inline(item)),
+                        .child(super::markdown_inline_view::render_inline(content, renders)),
                 )
         }))
         .into_any_element()
 }
 
-fn render_table(header: &[Inline], rows: &[Vec<Inline>]) -> gpui::AnyElement {
+fn render_table(
+    header: &[Inline],
+    rows: &[Vec<Inline>],
+    renders: &MarkdownRenderCache,
+) -> gpui::AnyElement {
     div()
         .overflow_hidden()
         .rounded_sm()
         .border_1()
         .border_color(rgb(color::BORDER))
-        .child(render_table_row(header, true, false))
+        .child(render_table_row(header, true, false, renders))
         .children(
             rows.iter()
                 .enumerate()
-                .map(|(index, row)| render_table_row(row, false, index % 2 == 1)),
+                .map(|(index, row)| render_table_row(row, false, index % 2 == 1, renders)),
         )
         .into_any_element()
 }
 
-fn render_table_row(cells: &[Inline], header: bool, alternate: bool) -> gpui::AnyElement {
+fn render_table_row(
+    cells: &[Inline],
+    header: bool,
+    alternate: bool,
+    renders: &MarkdownRenderCache,
+) -> gpui::AnyElement {
     div()
         .flex()
         .border_b_1()
@@ -217,7 +156,7 @@ fn render_table_row(cells: &[Inline], header: bool, alternate: bool) -> gpui::An
                 .whitespace_normal()
                 .text_xs()
                 .text_color(rgb(color::TEXT))
-                .child(render_inline(cell))
+                .child(super::markdown_inline_view::render_inline(cell, renders))
         }))
         .into_any_element()
 }

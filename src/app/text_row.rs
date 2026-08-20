@@ -13,6 +13,7 @@ impl Workspace {
         selection: PartSelection,
         selected: bool,
         document: Option<&Document>,
+        renders: &super::markdown_render_cache::MarkdownRenderCache,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let click_part = part.clone();
@@ -43,7 +44,7 @@ impl Workspace {
                         ))
                         .into_any_element()
                 },
-                super::markdown_view::render_document,
+                |document| super::markdown_view::render_document(document, renders),
             )))
             .into_any_element()
     }
