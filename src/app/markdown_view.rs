@@ -3,7 +3,7 @@ use gpui::{
     prelude::*, px, rgb,
 };
 use opencode_gpui::{
-    markdown::{Block, Document, Inline},
+    markdown::{Block, Document, Inline, TaskState},
     theme::{MONO_FONT, color},
 };
 
@@ -60,11 +60,20 @@ fn render_block(block: &Block) -> gpui::AnyElement {
 fn render_inline(content: &Inline) -> StyledText {
     let highlights = content.spans.iter().map(|span| {
         let style = &span.style;
+        let semantic_color = style
+            .link
+            .as_ref()
+            .map(|_| color::BLUE)
+            .or(style.path.then_some(color::CYAN))
+            .or(style.code.then_some(color::GREEN))
+            .or(style.italic.then_some(color::YELLOW))
+            .or(style.task.map(task_color));
         let highlight = HighlightStyle {
-            color: style.link.as_ref().map(|_| rgb(color::BLUE).into()),
-            font_weight: style.bold.then_some(FontWeight::SEMIBOLD),
+            color: semantic_color.map(|value| rgb(value).into()),
+            font_weight: (style.bold || style.kbd).then_some(FontWeight::BOLD),
             font_style: style.italic.then_some(FontStyle::Italic),
-            background_color: style.code.then_some(rgb(color::ELEVATED).into()),
+            background_color: (style.code || style.kbd || style.path)
+                .then_some(rgb(color::ELEVATED).into()),
             underline: style.link.as_ref().map(|_| UnderlineStyle {
                 thickness: px(1.0),
                 color: Some(rgb(color::BLUE).into()),
@@ -79,6 +88,15 @@ fn render_inline(content: &Inline) -> StyledText {
         (span.range.clone(), highlight)
     });
     StyledText::new(content.text.clone()).with_highlights(highlights)
+}
+
+const fn task_color(state: TaskState) -> u32 {
+    match state {
+        TaskState::Checked => color::GREEN,
+        TaskState::Active => color::YELLOW,
+        TaskState::Pending => color::TEXT_DIM,
+        TaskState::Cancelled => color::TEXT_MUTED,
+    }
 }
 
 fn render_code(language: &str, content: &str, diagram: bool) -> gpui::AnyElement {
@@ -169,12 +187,16 @@ fn render_table(header: &[Inline], rows: &[Vec<Inline>]) -> gpui::AnyElement {
         .rounded_sm()
         .border_1()
         .border_color(rgb(color::BORDER))
-        .child(render_table_row(header, true))
-        .children(rows.iter().map(|row| render_table_row(row, false)))
+        .child(render_table_row(header, true, false))
+        .children(
+            rows.iter()
+                .enumerate()
+                .map(|(index, row)| render_table_row(row, false, index % 2 == 1)),
+        )
         .into_any_element()
 }
 
-fn render_table_row(cells: &[Inline], header: bool) -> gpui::AnyElement {
+fn render_table_row(cells: &[Inline], header: bool, alternate: bool) -> gpui::AnyElement {
     div()
         .flex()
         .border_b_1()
@@ -183,6 +205,7 @@ fn render_table_row(cells: &[Inline], header: bool) -> gpui::AnyElement {
             row.bg(rgb(color::SURFACE))
                 .font_weight(FontWeight::SEMIBOLD)
         })
+        .when(alternate, |row| row.bg(rgb(color::ELEVATED)))
         .children(cells.iter().map(|cell| {
             div()
                 .min_w_0()

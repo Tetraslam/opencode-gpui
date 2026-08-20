@@ -59,7 +59,18 @@ pub struct InlineStyle {
     pub italic: bool,
     pub strike: bool,
     pub code: bool,
+    pub path: bool,
+    pub kbd: bool,
+    pub task: Option<TaskState>,
     pub link: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TaskState {
+    Pending,
+    Active,
+    Checked,
+    Cancelled,
 }
 
 #[derive(Default)]
@@ -91,6 +102,7 @@ pub fn parse(source: &str) -> Document {
         builder.event(event);
     }
     builder.finish();
+    crate::markdown_inline::decorate(&mut builder.document);
     builder.document
 }
 
@@ -99,6 +111,12 @@ impl Builder {
         match event {
             Event::Start(tag) => self.start(tag),
             Event::End(tag) => self.end(tag),
+            Event::InlineHtml(html) if html.trim().to_ascii_lowercase().starts_with("<kbd") => {
+                self.style.kbd = true;
+            }
+            Event::InlineHtml(html) if html.eq_ignore_ascii_case("</kbd>") => {
+                self.style.kbd = false;
+            }
             Event::Text(text) | Event::Html(text) | Event::InlineHtml(text) => {
                 self.push_text(&text);
             }
@@ -112,7 +130,13 @@ impl Builder {
             Event::HardBreak => self.push_text("\n"),
             Event::Rule => self.document.blocks.push(Block::Rule),
             Event::TaskListMarker(checked) => {
+                self.style.task = Some(if checked {
+                    TaskState::Checked
+                } else {
+                    TaskState::Pending
+                });
                 self.push_text(if checked { "[x] " } else { "[ ] " });
+                self.style.task = None;
             }
             Event::FootnoteReference(reference) => self.push_text(&format!("[{reference}]")),
             _ => {}

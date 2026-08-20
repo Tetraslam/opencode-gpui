@@ -15,7 +15,7 @@ pub(crate) struct PreparedPart {
     input: Option<SharedString>,
     output: Option<SharedString>,
     metadata: Option<SharedString>,
-    diff: Option<SharedString>,
+    diff_lines: Option<Vec<super::diff_view::DiffLine>>,
 }
 
 impl PreparedPart {
@@ -23,6 +23,10 @@ impl PreparedPart {
         let raw = serde_json::to_string_pretty(part)
             .unwrap_or_else(|error| format!("serialization error: {error}"));
         let state = part.data.get("state");
+        let diff = state
+            .and_then(|state| state.get("metadata"))
+            .and_then(|metadata| metadata.get("diff"))
+            .and_then(serde_json::Value::as_str);
         Self {
             kind: part.kind.clone().into(),
             tool: part
@@ -37,15 +41,11 @@ impl PreparedPart {
             output: state
                 .and_then(|state| state.get("output"))
                 .and_then(serde_json::Value::as_str)
-                .map(|output| output.to_owned().into()),
+                .map(bounded_output),
             metadata: state
                 .and_then(|state| state.get("metadata"))
                 .map(|value| pretty_json(value).into()),
-            diff: state
-                .and_then(|state| state.get("metadata"))
-                .and_then(|metadata| metadata.get("diff"))
-                .and_then(serde_json::Value::as_str)
-                .map(|diff| SharedString::from(diff.to_owned())),
+            diff_lines: diff.map(super::diff_view::parse_diff),
         }
     }
 }
@@ -101,11 +101,7 @@ impl Workspace {
             self.active_tab()
                 .and_then(|tab| tab.detail_cache.get(selection))
         });
-        let body = if selection.is_none() {
-            centered_message("select a part")
-        } else {
-            render_part_detail(prepared.map(Arc::as_ref), true)
-        };
+        let detail = selection.map(|_| render_part_detail(prepared.map(Arc::as_ref), true));
 
         div()
             .w(self.inspector_width)
@@ -129,13 +125,21 @@ impl Workspace {
                     .font_family(MONO_FONT)
                     .text_xs()
                     .text_color(rgb(color::TEXT_DIM))
-                    .child("inspector")
+                    .child("session")
                     .child(part.map_or_else(
                         || SharedString::from("--"),
                         |part| SharedString::from(part.kind.clone()),
                     )),
             )
-            .child(div().min_h_0().flex_1().child(body))
+            .child(
+                div()
+                    .id("inspector-body")
+                    .min_h_0()
+                    .flex_1()
+                    .overflow_y_scroll()
+                    .child(self.render_session_context())
+                    .children(detail),
+            )
             .into_any_element()
     }
 
@@ -183,12 +187,9 @@ pub(super) fn render_part_detail(
     let tool = prepared.tool.as_ref().map(AsRef::as_ref);
     let patch = matches!(tool, Some("apply_patch" | "patch"));
     let content = if patch {
-        detail_section(
-            "diff",
-            prepared
-                .diff
-                .clone()
-                .unwrap_or_else(|| "preparing patch...".into()),
+        prepared.diff_lines.as_ref().map_or_else(
+            || detail_section("diff", "preparing patch...".into()),
+            |lines| super::diff_view::render_diff(lines),
         )
     } else if tool == Some("bash") {
         detail_section(
@@ -198,7 +199,7 @@ pub(super) fn render_part_detail(
                 .clone()
                 .unwrap_or_else(|| "(no output)".into()),
         )
-    } else if prepared.kind.as_ref() == "tool" {
+    } else if prepared.tool.is_some() {
         div()
             .child(detail_section(
                 "input",
@@ -225,7 +226,6 @@ pub(super) fn render_part_detail(
             "detail-{}-{inspector}",
             prepared.kind
         )))
-        .when(inspector, |element| element.size_full().overflow_scroll())
         .when(inspector, gpui::Styled::px_3)
         .when(!inspector, |detail| {
             detail.pl(px(ui_size::TOOL_CONTENT_X)).pr_3()
@@ -272,4 +272,16 @@ fn detail_section(label: &'static str, content: SharedString) -> gpui::AnyElemen
 
 fn pretty_json(value: &serde_json::Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
+}
+
+fn bounded_output(output: &str) -> SharedString {
+    const LIMIT: usize = 120;
+    let mut lines = output.lines();
+    let visible = lines.by_ref().take(LIMIT).collect::<Vec<_>>().join("\n");
+    let hidden = lines.count();
+    if hidden == 0 {
+        visible.into()
+    } else {
+        format!("{visible}\n\n... {hidden} more lines").into()
+    }
 }

@@ -20,9 +20,9 @@ cannot safely coexist with other clients.
 | --- | --- | --- |
 | 0 | Reproducible Rust/GPUI build, CI, protocol client, health negotiation | complete |
 | 1 | Virtualized project/session browser, create/rename/delete, status, child sessions | active |
-| 2 | Virtualized timeline, extensible message parts, SSE reconciliation, abort/retry | planned |
-| 3 | Composer, attachments, commands, shell, file/reference completion | planned |
-| 4 | Permissions/questions, todos, tool details, notifications | planned |
+| 2 | Virtualized timeline, extensible message parts, SSE reconciliation, abort/retry | active |
+| 3 | Composer, attachments, commands, shell, file/reference completion | active |
+| 4 | Permissions/questions, todos, tool details, notifications | active |
 | 5 | Agents, providers/models/variants, auth, MCP/LSP/formatter status | planned |
 | 6 | Diffs, snapshots, revert/fork, file tree/search, VCS, sharing | planned |
 | 7 | Tabs/drafts/layout persistence, themes/keybindings, export, updates, PTY | planned |

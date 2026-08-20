@@ -1,6 +1,7 @@
 mod completion;
 mod request;
 mod runtime;
+mod sidebar;
 mod stream;
 
 #[cfg(test)]
@@ -69,6 +70,8 @@ pub struct PromptFile {
     pub filename: String,
     pub url: String,
 }
+
+pub use sidebar::{FileDiff, LspStatus, McpStatus, SidebarSnapshot, Todo};
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct SlashCommand {

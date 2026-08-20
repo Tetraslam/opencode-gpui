@@ -163,7 +163,7 @@ impl Render for Workspace {
             .then(|| Workspace::render_sidebar_resize_handle(cx));
         let inspector_open = self
             .active_tab()
-            .is_some_and(|tab| tab.selected_part.is_some())
+            .is_some_and(|tab| tab.timeline.session_id().is_some())
             && window.bounds().size.width >= px(1_240.0);
         let inspector = inspector_open.then(|| self.render_inspector());
         let inspector_resize = inspector_open.then(|| Self::render_inspector_resize_handle(cx));

@@ -6,7 +6,7 @@ use gpui::{
 
 use crate::theme::color;
 
-use super::{MAX_VISIBLE_LINES, TextEditor, layout::EditorLayout};
+use super::{MAX_VISIBLE_LINES, TextEditor, VERTICAL_PADDING, layout::EditorLayout};
 
 pub(super) struct TextElement {
     pub(super) input: Entity<TextEditor>,
@@ -47,12 +47,12 @@ impl Element for TextElement {
     ) -> (LayoutId, ()) {
         let mut style = Style::default();
         style.size.width = relative(1.0).into();
-        let lines = self
-            .input
-            .read(cx)
+        let input = self.input.read(cx);
+        let lines = input
             .visible_lines
+            .max(input.explicit_lines())
             .clamp(1, MAX_VISIBLE_LINES);
-        style.size.height = (window.line_height() * lines).into();
+        style.size.height = (window.line_height() * lines + VERTICAL_PADDING * 2).into();
         (window.request_layout(style, [], cx), ())
     }
 
@@ -102,7 +102,7 @@ impl Element for TextElement {
         let cursor = selected_range.is_empty().then(|| {
             let origin = point(
                 bounds.left() + cursor_position.x,
-                bounds.top() + cursor_position.y - scroll_y,
+                bounds.top() + VERTICAL_PADDING + cursor_position.y - scroll_y,
             );
             fill(
                 Bounds::new(origin, size(px(1.0), layout.line_height)),
@@ -139,7 +139,7 @@ impl Element for TextElement {
             }
             let mut row = 0;
             for line in &state.layout.lines {
-                let y = bounds.top() + state.layout.line_height * row
+                let y = bounds.top() + state.layout.line_height * row + VERTICAL_PADDING
                     - state.layout.line_height * state.layout.scroll_row;
                 line.paint(
                     point(bounds.left(), y),
@@ -161,7 +161,10 @@ impl Element for TextElement {
         let visible_lines = state.layout.visual_lines().clamp(1, MAX_VISIBLE_LINES);
         self.input.update(cx, |input, cx| {
             input.last_layout = Some(state.layout.clone());
-            input.last_bounds = Some(bounds);
+            input.last_bounds = Some(Bounds::new(
+                point(bounds.left(), bounds.top() + VERTICAL_PADDING),
+                size(bounds.size.width, bounds.size.height - VERTICAL_PADDING * 2),
+            ));
             if input.visible_lines != visible_lines {
                 input.visible_lines = visible_lines;
                 cx.notify();
@@ -225,7 +228,7 @@ fn selection_quads(
             };
             let origin = point(
                 bounds.left() + left,
-                bounds.top() + layout.line_height * row - scroll_y,
+                bounds.top() + VERTICAL_PADDING + layout.line_height * row - scroll_y,
             );
             fill(
                 Bounds::new(

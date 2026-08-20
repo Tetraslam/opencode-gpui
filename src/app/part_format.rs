@@ -22,6 +22,10 @@ pub(super) fn kind_color(kind: &str) -> u32 {
     }
 }
 
+pub(super) fn is_tool_part(part: &Part) -> bool {
+    part.kind == "tool" || part.data.get("tool").is_some()
+}
+
 pub(super) fn part_label(part: &Part) -> String {
     match part.kind.as_str() {
         "tool" => tool_icon(tool_name(part)).into(),
@@ -31,7 +35,7 @@ pub(super) fn part_label(part: &Part) -> String {
 }
 
 pub(super) fn part_marker(part: &Part) -> (&'static str, u32) {
-    if part.kind != "tool" {
+    if !is_tool_part(part) {
         return ("›", kind_color(&part.kind));
     }
     match part
@@ -47,14 +51,14 @@ pub(super) fn part_marker(part: &Part) -> (&'static str, u32) {
 }
 
 pub(super) fn one_line_summary(part: &Part, directory: &str) -> String {
-    let summary = if part.kind == "tool" {
+    let summary = if is_tool_part(part) {
         tool_summary(part, directory)
     } else {
         part.summary()
             .unwrap_or_else(|| format!("{} event", part.kind))
     };
     let normalized = strip_inline_markers(&summary.replace('\n', " "));
-    if part.kind == "tool" {
+    if is_tool_part(part) {
         return normalized;
     }
     let mut chars = normalized.chars();

@@ -1,21 +1,24 @@
 pub mod color {
-    pub const BASE: u32 = 0x0011_1117;
-    pub const SURFACE: u32 = 0x001e_1d27;
-    pub const ELEVATED: u32 = 0x0026_2431;
-    pub const HOVER: u32 = 0x002d_2a39;
-    pub const SELECTED: u32 = 0x0034_2f42;
-    pub const BORDER_SUBTLE: u32 = 0x0023_212c;
-    pub const BORDER: u32 = 0x0030_2d3a;
-    pub const TEXT: u32 = 0x00b8_b6c1;
-    pub const TEXT_BRIGHT: u32 = 0x00d2_ced8;
-    pub const TEXT_DIM: u32 = 0x0085_818f;
-    pub const TEXT_MUTED: u32 = 0x005f_5b69;
-    pub const ACCENT: u32 = 0x00a9_9ac6;
-    pub const BLUE: u32 = 0x007f_9fbd;
-    pub const CYAN: u32 = 0x0078_a8aa;
-    pub const GREEN: u32 = 0x008f_a879;
-    pub const YELLOW: u32 = 0x00b8_a06a;
-    pub const RED: u32 = 0x00c4_7878;
+    pub const BASE: u32 = 0x001a_1b26;
+    pub const SURFACE: u32 = 0x0028_2a3b;
+    pub const ELEVATED: u32 = 0x002f_3145;
+    pub const HOVER: u32 = 0x0038_3b53;
+    pub const SELECTED: u32 = 0x003d_405a;
+    pub const BORDER_SUBTLE: u32 = 0x0044_4764;
+    pub const BORDER: u32 = 0x004b_4e6e;
+    pub const TEXT: u32 = 0x00a9_b1d6;
+    pub const TEXT_BRIGHT: u32 = 0x00c0_c7e8;
+    pub const TEXT_DIM: u32 = 0x0092_99bd;
+    pub const TEXT_MUTED: u32 = 0x008f_96b8;
+    pub const ACCENT: u32 = 0x0044_9dab;
+    pub const BLUE: u32 = 0x007a_a2f7;
+    pub const CYAN: u32 = 0x0044_9dab;
+    pub const GREEN: u32 = 0x009e_ce6a;
+    pub const YELLOW: u32 = 0x00e0_af68;
+    pub const RED: u32 = 0x00f7_768e;
+    pub const DIFF_ADDED_BG: u32 = 0x0037_4235;
+    pub const DIFF_REMOVED_BG: u32 = 0x004b_2f3d;
+    pub const DIFF_CONTEXT_BG: u32 = 0x0028_2a3b;
     pub const TOOL: u32 = YELLOW;
     pub const REASONING: u32 = ACCENT;
 }
@@ -50,5 +53,33 @@ mod tests {
         assert_ne!(color::SURFACE, color::ELEVATED);
         assert_ne!(color::TEXT, color::TEXT_DIM);
         assert_ne!(color::GREEN, color::RED);
+    }
+
+    #[test]
+    fn reading_text_meets_dark_surface_contrast_floor() {
+        assert!(contrast(color::TEXT, color::BASE) >= 4.5);
+        assert!(contrast(color::TEXT, color::SURFACE) >= 4.5);
+        assert!(contrast(color::TEXT_DIM, color::BASE) >= 4.5);
+        assert!(contrast(color::TEXT_MUTED, color::DIFF_CONTEXT_BG) >= 4.5);
+        assert!(contrast(color::TEXT, color::DIFF_ADDED_BG) >= 4.5);
+        assert!(contrast(color::TEXT, color::DIFF_REMOVED_BG) >= 4.5);
+    }
+
+    fn contrast(foreground: u32, background: u32) -> f64 {
+        let foreground = luminance(foreground);
+        let background = luminance(background);
+        (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05)
+    }
+
+    fn luminance(color: u32) -> f64 {
+        let channel = |shift: u32| {
+            let value = f64::from((color >> shift) & 0xff_u32) / 255.0;
+            if value <= 0.04045 {
+                value / 12.92
+            } else {
+                ((value + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
     }
 }

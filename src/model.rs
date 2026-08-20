@@ -109,7 +109,34 @@ pub struct AssistantMessage {
     pub mode: String,
     #[serde(default)]
     pub cost: f64,
+    #[serde(default)]
+    pub tokens: TokenUsage,
     pub finish: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq)]
+pub struct TokenUsage {
+    pub total: Option<u64>,
+    pub input: u64,
+    pub output: u64,
+    pub reasoning: u64,
+    #[serde(default)]
+    pub cache: CacheUsage,
+}
+
+impl TokenUsage {
+    #[must_use]
+    pub fn used(self) -> u64 {
+        self.total.unwrap_or(
+            self.input + self.output + self.reasoning + self.cache.read + self.cache.write,
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
+pub struct CacheUsage {
+    pub read: u64,
+    pub write: u64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]

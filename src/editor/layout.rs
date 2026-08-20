@@ -1,5 +1,13 @@
 use gpui::{Pixels, Point, WrappedLine, point};
 
+use super::{MAX_VISIBLE_LINES, TextEditor};
+
+impl TextEditor {
+    pub(super) fn explicit_lines(&self) -> usize {
+        (self.content.matches('\n').count() + 1).clamp(1, MAX_VISIBLE_LINES)
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct EditorLayout {
     pub(super) lines: Vec<WrappedLine>,

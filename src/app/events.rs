@@ -58,6 +58,14 @@ impl Workspace {
                     let rehydrate = batch
                         .iter()
                         .any(|event| matches!(event, Event::ServerConnected));
+                    let refresh_sidebar = batch.iter().any(|event| match event {
+                        Event::SessionIdle { .. } => true,
+                        Event::Unknown(payload) => matches!(
+                            payload.kind.as_str(),
+                            "todo.updated" | "session.diff" | "lsp.updated"
+                        ),
+                        _ => false,
+                    });
                     let bootstrap = if rehydrate {
                         client.bootstrap().await.ok()
                     } else {
@@ -71,6 +79,9 @@ impl Workspace {
                             workspace.apply_events(batch, Some(&directory));
                             workspace.refresh_markdown(&directory, cx);
                             workspace.refresh_image_cache(&directory, cx);
+                            if refresh_sidebar {
+                                workspace.refresh_sidebar_for_directory(&directory, cx);
+                            }
                             cx.notify();
                         })
                         .is_err()

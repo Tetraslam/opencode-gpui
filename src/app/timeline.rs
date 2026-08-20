@@ -179,6 +179,14 @@ impl Workspace {
         let expanded = state.expanded_parts.contains(&selection);
         let selected = state.selected_part == Some(&selection);
         if part.kind == "text" {
+            if part
+                .data
+                .get("synthetic")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+            {
+                return None;
+            }
             let document = state
                 .markdown_cache
                 .get(&selection)
@@ -188,14 +196,16 @@ impl Workspace {
                 part, selection, selected, document, cx,
             ));
         }
-        if let Some(image) = state.image_cache.get(&selection).filter(|cached| {
-            cached.source
-                == part
-                    .data
-                    .get("url")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or_default()
-        }) {
+        if part.kind == "file"
+            && let Some(image) = state.image_cache.get(&selection).filter(|cached| {
+                cached.source
+                    == part
+                        .data
+                        .get("url")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+            })
+        {
             return Some(Self::render_image_part(
                 part,
                 selection,
@@ -204,7 +214,10 @@ impl Workspace {
                 cx,
             ));
         }
-        if part.kind == "tool" {
+        if part.kind == "file" {
+            return Some(Self::render_file_part(part, selection, selected, cx));
+        }
+        if super::part_format::is_tool_part(part) {
             return Some(Self::render_tool_part(
                 part,
                 &selection,

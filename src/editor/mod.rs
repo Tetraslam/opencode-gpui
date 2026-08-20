@@ -25,6 +25,7 @@ use gpui::{
 use element::TextElement;
 
 const MAX_VISIBLE_LINES: usize = 8;
+const VERTICAL_PADDING: Pixels = px(3.0);
 
 actions!(
     opencode_editor,

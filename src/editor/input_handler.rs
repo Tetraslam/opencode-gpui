@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use gpui::{Bounds, Context, EntityInputHandler, Pixels, UTF16Selection, Window, point};
 
-use super::{Changed, TextEditor};
+use super::{Changed, TextEditor, VERTICAL_PADDING};
 
 impl TextEditor {
     fn offset_from_utf16(&self, offset: usize) -> usize {
@@ -142,10 +142,13 @@ impl EntityInputHandler for TextEditor {
         let end = layout.position_for_offset(range.end);
         let scroll_y = layout.line_height * layout.scroll_row;
         Some(Bounds::from_corners(
-            point(bounds.left() + start.x, bounds.top() + start.y - scroll_y),
+            point(
+                bounds.left() + start.x,
+                bounds.top() + VERTICAL_PADDING + start.y - scroll_y,
+            ),
             point(
                 bounds.left() + end.x.max(start.x),
-                bounds.top() + end.y + layout.line_height - scroll_y,
+                bounds.top() + VERTICAL_PADDING + end.y + layout.line_height - scroll_y,
             ),
         ))
     }

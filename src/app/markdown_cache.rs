@@ -30,6 +30,14 @@ impl Workspace {
                 let Some(text) = (part.kind == "text").then(|| part.text()).flatten() else {
                     continue;
                 };
+                if part
+                    .data
+                    .get("synthetic")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
                 let selection = PartSelection {
                     message_id: part.message_id.clone(),
                     part_id: part.id.clone(),

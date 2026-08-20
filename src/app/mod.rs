@@ -8,6 +8,7 @@ mod composer_completion_view;
 mod composer_images;
 mod composer_slashes;
 mod composer_submit;
+mod diff_view;
 mod directory_completion;
 mod directory_history;
 mod directory_path;
@@ -16,6 +17,7 @@ mod draft_persistence;
 mod draft_store;
 mod event_row;
 mod events;
+mod file_row;
 mod format;
 mod history;
 mod image_attachment;
@@ -31,10 +33,13 @@ mod overlay_keys;
 mod pane_resize;
 mod part_format;
 mod part_interaction;
+mod part_merge;
 mod reducer;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
+mod sidebar_state;
+mod sidebar_view;
 mod tabs;
 mod text_row;
 mod timeline;
@@ -197,6 +202,7 @@ impl Workspace {
         let client = tab.client.clone();
         let task_directory = directory.clone();
         self.restore_draft(&directory, &session_id, cx);
+        self.load_sidebar(&directory, &session_id, cx);
 
         let requested_id = session_id;
         let task = cx.spawn(async move |workspace, cx| {

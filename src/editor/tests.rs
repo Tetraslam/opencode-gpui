@@ -33,3 +33,12 @@ fn word_navigation_skips_whitespace_and_preserves_unicode(cx: &mut TestAppContex
         assert_eq!(editor.next_word_boundary(11), 12);
     });
 }
+
+#[gpui::test]
+fn explicit_newlines_grow_layout_without_waiting_for_paint(cx: &mut TestAppContext) {
+    let editor = cx.new(|cx| TextEditor::new("placeholder", cx));
+    editor.update(cx, |editor, _| {
+        editor.content = "one\ntwo\nthree".into();
+        assert_eq!(editor.explicit_lines(), 3);
+    });
+}

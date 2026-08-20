@@ -211,7 +211,7 @@ impl ClientInner {
         Ok(url)
     }
 
-    fn scoped_url(&self, segments: &[&str]) -> Result<Url, Error> {
+    pub(super) fn scoped_url(&self, segments: &[&str]) -> Result<Url, Error> {
         let mut url = self.url(segments)?;
         if let Some(directory) = &self.directory {
             url.query_pairs_mut().append_pair("directory", directory);
@@ -219,7 +219,9 @@ impl ClientInner {
         Ok(url)
     }
 
-    async fn send_json<T: DeserializeOwned>(request: reqwest::RequestBuilder) -> Result<T, Error> {
+    pub(super) async fn send_json<T: DeserializeOwned>(
+        request: reqwest::RequestBuilder,
+    ) -> Result<T, Error> {
         let response = request
             .timeout(std::time::Duration::from_secs(20))
             .send()

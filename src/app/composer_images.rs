@@ -60,10 +60,21 @@ impl Workspace {
                     .text_xs()
                     .child(
                         div()
+                            .px_1()
+                            .rounded_sm()
+                            .bg(rgb(color::ACCENT))
+                            .text_color(rgb(color::BASE))
+                            .child("image"),
+                    )
+                    .child(
+                        div()
                             .min_w_0()
                             .flex_1()
+                            .px_1()
                             .truncate()
-                            .text_color(rgb(color::TEXT_DIM))
+                            .rounded_sm()
+                            .bg(rgb(color::BASE))
+                            .text_color(rgb(color::TEXT))
                             .child(if ready {
                                 image.filename.clone()
                             } else {

@@ -5,7 +5,10 @@ use opencode_gpui::{
     model::{MessageRecord, Part, Session, sort_sessions},
 };
 
-use super::{PendingDelta, ServerState, TimelineState, Workspace};
+use super::{
+    PendingDelta, ServerState, TimelineState, Workspace,
+    part_merge::{append_part_field, merge_part},
+};
 
 impl Workspace {
     pub(super) fn apply_events(&mut self, events: Vec<Event>, directory: Option<&str>) {
@@ -259,38 +262,4 @@ impl Workspace {
             }
         }
     }
-}
-
-fn merge_part(parts: &mut Vec<Part>, mut incoming: Part, delta: Option<&str>) {
-    let Some(current) = parts.iter_mut().find(|part| part.id == incoming.id) else {
-        if incoming.text().is_none_or(str::is_empty)
-            && let Some(delta) = delta
-        {
-            Arc::make_mut(&mut incoming.data)
-                .insert("text".into(), serde_json::Value::String(delta.into()));
-        }
-        parts.push(incoming);
-        return;
-    };
-    let current_text = current.text().unwrap_or_default();
-    let incoming_text = incoming.text().unwrap_or_default();
-    if let Some(delta) = delta
-        && !incoming_text.starts_with(current_text)
-    {
-        let mut text = current_text.to_owned();
-        text.push_str(delta);
-        Arc::make_mut(&mut incoming.data).insert("text".into(), serde_json::Value::String(text));
-    }
-    *current = incoming;
-}
-
-fn append_part_field(part: &mut Part, field: &str, delta: &str) {
-    let data = Arc::make_mut(&mut part.data);
-    let mut value = data
-        .get(field)
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    value.push_str(delta);
-    data.insert(field.to_owned(), serde_json::Value::String(value));
 }
