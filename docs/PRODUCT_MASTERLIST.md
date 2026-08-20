@@ -1,10 +1,12 @@
 # Product masterlist
 
-Status: draft for user approval.
+Status: approved on 2026-08-19. Active milestone: complete, polished composer parity.
 
-This document freezes requested product scope. After approval, do not edit it to report progress or
-reinterpret a requirement. Track execution in issues, commits, or `docs/WORKBENCH_BACKLOG.md` and use
-this file as the acceptance baseline. Amend it only when the user explicitly changes the product scope.
+This document is the acceptance baseline and durable progress ledger. Do not delete, weaken, or silently
+reinterpret a requirement. Strike through a requirement only after implementation, automated checks,
+and the relevant manual test pass; keep the completed text visible. Amend scope only when the user
+explicitly changes it. Continue implementing, testing with the user, and iterating until the entire
+document is complete.
 
 ## Product principles
 
@@ -40,6 +42,9 @@ These are the next implementation tasks requested in the latest manual test pass
 - Preserve normal click-drag selection without the trace row stealing the gesture to select/expand a
   part. Part selection must move to a dedicated affordance or a non-drag click path.
 - Support copying the selected text with the platform-standard shortcut.
+- Allow one selection to span separate timeline parts and pane boundaries. Design the selection as one
+  coherent desktop interaction rather than a collection of isolated selectable labels.
+- Study OpenCode TUI's source implementation before choosing the cross-part selection architecture.
 
 Acceptance:
 
@@ -52,12 +57,17 @@ Acceptance:
 
 ### Composer and activity gutter
 
+This is the active milestone. Target functional and visual parity as one continuous implementation
+tranche rather than a sequence of placeholder menus.
+
 - Replace the awkward empty space to the left of the composer with a fixed activity cell aligned to
   the trace marker/kind gutter.
 - Drive that cell from OpenCode's real session status and events: idle, busy/working, retrying, and
   failed. Do not fake activity with an unrelated cosmetic loader.
 - Show enough state to distinguish active model work, active tool execution when available, retry
   delay/attempt state, completion, and failure without turning the gutter into a dashboard.
+- When the active or expanded trace point exposes it, show elapsed time and tool name in the activity
+  cell.
 - Keep the prompt text column aligned with conversation content while making the composer/activity row
   read as one intentional full-width structure.
 - Give top, bottom, and outer-edge spacing one shared value.
@@ -66,6 +76,16 @@ Acceptance:
   the card terminate at the scrollbar centerline.
 - Keep attachment cards, completion overlays, multiline growth, IME bounds, and editor hit-testing
   aligned with the resulting composer geometry.
+- Audit the current OpenCode server schema, SDK, TUI source, commands, and capability endpoints before
+  declaring parity. Implement every composer-adjacent menu the server exposes, including agent,
+  provider/model, variant, command, skill, MCP command, file/reference, and attachment flows.
+- Match upstream menu availability, labels, grouping, aliases, disabled/error states, keyboard
+  navigation, selection preservation, and submission semantics instead of hard-coding a partial list.
+- Cover normal prompts, shell mode, server slash commands, local commands, file mentions, image
+  attachments, multiline editing, history/drafts, abort, model/agent switching, and capability changes
+  that arrive while the app is running.
+- Keep completion filtering and repeated keyboard navigation within the direct-interaction performance
+  budget regardless of menu size.
 
 Acceptance:
 
@@ -74,6 +94,8 @@ Acceptance:
   enough state; retry state reflects the server event rather than a generic spinner.
 - The left activity cell, prompt card, conversation content, and scrollbar form one visible grid.
 - Composer and conversation right edges line up at every supported pane width.
+- Every composer menu and mode exposed by the connected OpenCode version is reachable, keyboard
+  navigable, correctly submitted, and visually integrated rather than represented by a placeholder.
 
 ### Mermaid viewport quality
 
@@ -91,6 +113,7 @@ Acceptance:
   fallback on unsupported or invalid diagrams.
 - Persist a diagram's view only while its source and session part identity remain unchanged; source
   changes reset to fit-to-view.
+- Diagram viewport state is process-local and does not survive an app restart.
 
 Acceptance:
 
@@ -167,6 +190,7 @@ user reprioritizes them.
 - Keep optimistic/server image reconciliation at exactly one timeline item.
 - Refine attachment cards around one preview, filename, state, and removal affordance without nested
   decorative badges.
+- ~~Keep distinct backgrounds behind the attachment type descriptor and filename descriptor.~~
 - Preserve native clipboard paste, background encoding, draft restoration, normal prompt/slash
   transport, timeline previews, limits, and clear error states.
 
@@ -179,6 +203,8 @@ user reprioritizes them.
 - Extend the diff viewer with file navigation, unified/split modes, hunk folding, syntax highlighting,
   stable anchors, comments-ready geometry, and keyboard navigation.
 - Do not lose streamed diff updates to stale prepared-detail caches.
+- Pressing Escape while a trace part is expanded collapses it and clears its inspector selection.
+  Without Escape, an expanded part may remain expanded and focused in the inspector.
 
 ### Persistent session context
 
@@ -242,13 +268,40 @@ These behaviors are not new tasks, but later work must not regress them.
 - Source-size enforcement, direct-interaction performance tests, formatting, strict Clippy, unit/API
   tests, release builds, CI, and post-build manual testing.
 
-## Approval questions
+## Approval questions and decisions
 
 1. Is the immediate scope ordered correctly: selection, composer/activity geometry, Mermaid viewport,
    sidebar stability, then key-repeat performance?
+
+   Answer: Yes, but composer parity is now the active milestone and each implementation pass should
+   complete substantially more scope. Composer parity includes auditing and implementing the menus and
+   capabilities exposed by OpenCode, with polish rather than placeholders.
+
 2. Should selected text be allowed to span across separate timeline parts and pane boundaries, or is
    complete selection within each rendered block sufficient?
+
+   Answer: Selection must span separate parts and pane boundaries. Study and follow OpenCode TUI's
+   proven implementation behavior.
+
 3. Should the activity gutter show only state or also elapsed time/tool name when protocol data exists?
+
+   Answer: Show elapsed time and tool name when an expanded trace point exposes them. Pressing Escape
+   while a trace point is expanded must collapse it and clear its inspector selection; otherwise it may
+   remain expanded and focused in the inspector.
+
 4. Should diagram pan/zoom state survive app restarts, or only rerenders during the current process?
-5. Which previously requested follow-up section should become the next milestone after the immediate
+
+   Answer: Keep diagram viewport state only during the current process. It does not survive restarts.
+
+5. Should automatic diff expansion remain enabled by default for every workspace?
+
+   Answer: Yes. Automatic diff expansion remains enabled by default for every workspace.
+
+6. Which previously requested follow-up section should become the next milestone after the immediate
    scope?
+
+   Answer: Composer parity is the current priority. Continue through the rest of this document after
+   composer parity, striking completed requirements while retaining their text.
+
+Additional approved decision: attachment type and filename descriptors retain distinct background
+surfaces.

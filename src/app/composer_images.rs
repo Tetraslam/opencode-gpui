@@ -62,12 +62,22 @@ impl Workspace {
                     .border_color(rgb(color::BORDER_SUBTLE))
                     .font_family(MONO_FONT)
                     .text_xs()
-                    .child(div().text_color(rgb(color::ACCENT)).child("img"))
+                    .child(
+                        div()
+                            .px_1()
+                            .rounded_sm()
+                            .bg(rgb(color::ACCENT))
+                            .text_color(rgb(color::BASE))
+                            .child("image"),
+                    )
                     .child(
                         div()
                             .min_w_0()
                             .flex_1()
+                            .px_1()
                             .truncate()
+                            .rounded_sm()
+                            .bg(rgb(color::BASE))
                             .text_color(rgb(if ready { color::TEXT } else { color::YELLOW }))
                             .child(if ready {
                                 image.filename.clone()
