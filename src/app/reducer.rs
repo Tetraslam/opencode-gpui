@@ -11,6 +11,13 @@ use super::{
 };
 
 impl Workspace {
+    pub(super) fn apply_message_record(&mut self, message: MessageRecord, directory: Option<&str>) {
+        self.update_message(&message.info, directory);
+        for part in message.parts {
+            self.update_part(part, None, directory);
+        }
+    }
+
     pub(super) fn apply_events(&mut self, events: Vec<Event>, directory: Option<&str>) {
         for event in events {
             match event {
@@ -20,6 +27,13 @@ impl Workspace {
                 }
                 Event::SessionDeleted(session) => self.delete_session(&session),
                 Event::SessionStatus { session_id, status } => {
+                    if status == SessionStatus::Busy {
+                        for tab in &mut self.tabs {
+                            if tab.timeline.session_id() == Some(session_id.as_str()) {
+                                tab.prompt_error = None;
+                            }
+                        }
+                    }
                     Arc::make_mut(&mut self.statuses).insert(session_id, status);
                 }
                 Event::SessionIdle { session_id } => {

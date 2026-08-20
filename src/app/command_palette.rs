@@ -34,6 +34,7 @@ impl Workspace {
         if self.overlay == Overlay::Command {
             self.overlay_selection = 0;
             self.command_editor.update(cx, TextEditor::clear);
+            self.refresh_command_suggestions("");
             self.command_editor.read(cx).focus_handle(cx).focus(window);
         } else {
             self.focus_active_editor(window, cx);
@@ -52,6 +53,21 @@ impl Workspace {
                 && tab.composer_completion.take().is_some()
             {
                 cx.notify();
+                return;
+            }
+            if let Some(tab) = self.active_tab_mut()
+                && tab.prompt_mode == super::prompt_mode::PromptMode::Shell
+            {
+                tab.prompt_mode = super::prompt_mode::PromptMode::Normal;
+                cx.notify();
+                return;
+            }
+            if let Some(tab) = self.active_tab_mut()
+                && let Some(selection) = tab.selected_part.take()
+            {
+                tab.expanded_parts.remove(&selection);
+                tab.collapsed_parts.insert(selection);
+                cx.notify();
             }
             return;
         }
@@ -62,9 +78,9 @@ impl Workspace {
         }
     }
 
-    pub(super) fn execute_command_palette(&mut self, query: &str, cx: &mut Context<Self>) {
+    pub(super) fn execute_command_palette(&mut self, _query: &str, cx: &mut Context<Self>) {
         if let Some(command) = self
-            .filtered_commands(query)
+            .command_suggestions
             .get(self.overlay_selection)
             .copied()
         {
@@ -77,8 +93,7 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
         (self.overlay == Overlay::Command).then(|| {
-            let query = self.command_editor.read(cx).text();
-            let commands = self.filtered_commands(query);
+            let commands = &self.command_suggestions;
             div()
                 .absolute()
                 .top(px(ui_size::TITLEBAR + 16.0))
@@ -112,9 +127,15 @@ impl Workspace {
                                 .border_color(rgb(color::BORDER))
                                 .child(self.command_editor.clone()),
                         )
-                        .children(commands.into_iter().enumerate().map(|(index, command)| {
-                            command_row(command, index == self.overlay_selection, cx)
-                        })),
+                        .children(
+                            commands
+                                .iter()
+                                .copied()
+                                .enumerate()
+                                .map(|(index, command)| {
+                                    command_row(command, index == self.overlay_selection, cx)
+                                }),
+                        ),
                 )
                 .into_any_element()
         })

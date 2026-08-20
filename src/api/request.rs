@@ -53,6 +53,14 @@ struct CommandBody<'a> {
     parts: Vec<PromptPartInput>,
 }
 
+#[derive(Serialize)]
+struct ShellBody<'a> {
+    agent: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    model: Option<crate::model::ModelRef>,
+    command: &'a str,
+}
+
 impl ClientInner {
     pub(super) async fn create_session(&self, options: CreateSession) -> Result<Session, Error> {
         let url = self.scoped_url(&["session"])?;
@@ -153,6 +161,22 @@ impl ClientInner {
             });
         let _: serde_json::Value = Self::send_json(request).await?;
         Ok(())
+    }
+
+    pub(super) async fn shell(
+        &self,
+        session_id: &str,
+        command: &str,
+        agent: &str,
+        model: Option<crate::model::ModelRef>,
+    ) -> Result<MessageRecord, Error> {
+        let url = self.scoped_url(&["session", session_id, "shell"])?;
+        let request = self.request_url_method(Method::POST, url).json(&ShellBody {
+            agent,
+            model,
+            command,
+        });
+        Self::send_json(request).await
     }
 
     pub(super) async fn get_messages(

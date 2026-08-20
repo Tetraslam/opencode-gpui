@@ -19,16 +19,25 @@ impl Workspace {
                 matches!(status, SessionStatus::Busy | SessionStatus::Retry { .. })
             });
         let error = tab.prompt_error.clone();
+        let mode = tab.prompt_mode;
         let editor = tab.editor.clone();
         let images = tab.attached_images.clone();
+        let status = session_id
+            .as_ref()
+            .and_then(|id| self.statuses.get(id))
+            .cloned();
         div()
             .flex_none()
-            .pl(px(ui_size::TOOL_CONTENT_X))
-            .pr(px(ui_size::EDGE_INSET))
+            .pl(px(ui_size::EDGE_INSET))
             .py_3()
+            .flex()
+            .gap_2()
             .bg(rgb(color::BASE))
+            .child(activity_cell(status.as_ref(), error.is_some()))
             .child(
                 div()
+                    .min_w_0()
+                    .flex_1()
                     .rounded_sm()
                     .border_1()
                     .border_color(rgb(if error.is_some() {
@@ -53,7 +62,11 @@ impl Workspace {
                                     .flex()
                                     .items_center()
                                     .text_color(rgb(color::ACCENT))
-                                    .child(">"),
+                                    .child(if mode == super::prompt_mode::PromptMode::Shell {
+                                        "$"
+                                    } else {
+                                        ">"
+                                    }),
                             )
                             .child(div().min_w_0().flex_1().child(editor)),
                     )
@@ -69,7 +82,13 @@ impl Workspace {
                             .font_family(MONO_FONT)
                             .text_xs()
                             .text_color(rgb(color::TEXT_DIM))
-                            .child(error.unwrap_or_else(|| self.last_prompt_context()))
+                            .child(error.unwrap_or_else(|| {
+                                if mode == super::prompt_mode::PromptMode::Shell {
+                                    "shell mode  |  esc exit".into()
+                                } else {
+                                    self.last_prompt_context()
+                                }
+                            }))
                             .child(if busy {
                                 Self::abort_button(session_id.expect("busy session has an id"), cx)
                             } else {
@@ -172,4 +191,32 @@ impl Workspace {
             .unwrap_or_else(|| "server default agent and model".into())
             .into()
     }
+}
+
+fn activity_cell(status: Option<&SessionStatus>, failed: bool) -> gpui::AnyElement {
+    let (marker, label_color) = if failed {
+        ("!", color::RED)
+    } else {
+        match status {
+            Some(SessionStatus::Busy) => ("●", color::GREEN),
+            Some(SessionStatus::Retry { .. }) => ("↻", color::YELLOW),
+            Some(SessionStatus::Idle) | None => ("·", color::TEXT_MUTED),
+        }
+    };
+    div()
+        .w(px(ui_size::TOOL_CONTENT_X
+            - ui_size::EDGE_INSET
+            - ui_size::GAP))
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded_sm()
+        .border_1()
+        .border_color(rgb(color::BORDER_SUBTLE))
+        .bg(rgb(color::SURFACE))
+        .font_family(MONO_FONT)
+        .text_color(rgb(label_color))
+        .child(marker)
+        .into_any_element()
 }

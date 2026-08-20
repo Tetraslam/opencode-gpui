@@ -42,6 +42,7 @@ impl Workspace {
         if self.overlay == Overlay::Directory {
             self.overlay_selection = 0;
             self.directory_editor.update(cx, TextEditor::clear);
+            self.refresh_directory_suggestions(String::new(), cx);
             self.directory_editor
                 .read(cx)
                 .focus_handle(cx)
@@ -53,8 +54,14 @@ impl Workspace {
     }
 
     pub(super) fn submit_directory_picker(&mut self, query: &str, cx: &mut Context<Self>) {
+        if query != self.directory_suggestion_query {
+            if !query.trim().is_empty() {
+                self.create_directory_session(query, cx);
+            }
+            return;
+        }
         if let Some(directory) = self
-            .directory_candidates(query)
+            .directory_suggestions
             .get(self.overlay_selection)
             .cloned()
         {

@@ -1,6 +1,7 @@
 mod completion;
 mod request;
 mod runtime;
+mod session_actions;
 mod sidebar;
 mod stream;
 

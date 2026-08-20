@@ -9,10 +9,10 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
         (self.overlay == Overlay::Directory).then(|| {
-            let query = self.directory_editor.read(cx).text();
             let rows =
-                self.directory_candidates(query)
-                    .into_iter()
+                self.directory_suggestions
+                    .iter()
+                    .cloned()
                     .enumerate()
                     .map(|(index, directory)| {
                         let selected = index == self.overlay_selection;

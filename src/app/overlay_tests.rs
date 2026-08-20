@@ -9,6 +9,7 @@ fn overlay_selection_wraps_for_keyboard_navigation(cx: &mut TestAppContext) {
     );
     workspace.update(cx, |workspace, cx| {
         workspace.overlay = Overlay::Directory;
+        workspace.directory_suggestions = Arc::new(workspace.known_directories());
         workspace.move_overlay_selection(-1, cx);
         assert_eq!(
             workspace.overlay_selection,
@@ -18,6 +19,7 @@ fn overlay_selection_wraps_for_keyboard_navigation(cx: &mut TestAppContext) {
         assert_eq!(workspace.overlay_selection, 0);
 
         workspace.overlay = Overlay::Command;
+        workspace.refresh_command_suggestions("");
         workspace.move_overlay_selection(-1, cx);
         assert_eq!(
             workspace.overlay_selection,
@@ -31,6 +33,7 @@ fn empty_query_activates_the_keyboard_selected_command(cx: &mut TestAppContext) 
     let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
     workspace.update(cx, |workspace, cx| {
         workspace.overlay = Overlay::Command;
+        workspace.refresh_command_suggestions("");
         workspace.overlay_selection = 2;
         workspace.execute_command_palette("", cx);
         assert!(workspace.sessions_open);

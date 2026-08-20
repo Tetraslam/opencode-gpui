@@ -68,9 +68,7 @@ fn workspace(
             workspace.execute_command_palette(&event.text, cx);
         });
         let command_change = cx.subscribe(&command_editor, |workspace, editor, _: &Changed, cx| {
-            if !editor.read(cx).text().is_empty() {
-                workspace.overlay_selection = 0;
-            }
+            workspace.refresh_command_suggestions(editor.read(cx).text());
             cx.notify();
         });
         let editor = cx.new(|cx| TextEditor::new("prompt", cx));
@@ -122,6 +120,8 @@ fn workspace(
             _directory_subscription: directory_subscription,
             _directory_change: directory_change,
             directory_suggestions: Arc::new(Vec::new()),
+            directory_suggestion_query: String::new(),
+            command_suggestions: Arc::new(Vec::new()),
             directory_completion: None,
             command_editor,
             _command_submit: command_submit,

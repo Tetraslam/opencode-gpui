@@ -6,13 +6,14 @@ use std::{
 };
 
 use super::{Client, CreateSession, Prompt, PromptFile};
+use crate::model::ModelRef;
 
 #[test]
 fn session_mutations_match_the_server_contract() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
-        for index in 0..7 {
+        for index in 0..8 {
             let (mut stream, _) = listener.accept().unwrap();
             let request = read_request(&mut stream);
             let (expected, body, status) = request_expectation(index);
@@ -36,6 +37,11 @@ fn session_mutations_match_the_server_contract() {
             if index == 4 {
                 assert!(request.contains(r#""command":"review","arguments":"this""#));
                 assert!(request.contains(r#""mime":"image/png""#));
+            }
+            if index == 5 {
+                assert!(request.contains(r#""agent":"build""#));
+                assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
+                assert!(request.contains(r#""command":"git status""#));
             }
             write_response(&mut stream, status, &body);
         }
@@ -91,10 +97,27 @@ fn session_mutations_match_the_server_contract() {
             )
             .await
             .unwrap();
+        submit_shell(&client).await;
         assert!(client.abort_session("ses_new").await.unwrap());
         assert!(client.delete_session("ses_new").await.unwrap());
     });
     server.join().unwrap();
+}
+
+async fn submit_shell(client: &Client) {
+    client
+        .shell(
+            "ses_new",
+            "git status",
+            "build",
+            ModelRef {
+                provider_id: "openai".into(),
+                model_id: "gpt-test".into(),
+            }
+            .into(),
+        )
+        .await
+        .unwrap();
 }
 
 fn request_expectation(index: usize) -> (&'static str, String, &'static str) {
@@ -125,6 +148,11 @@ fn request_expectation(index: usize) -> (&'static str, String, &'static str) {
             "200 OK",
         ),
         5 => (
+            "POST /session/ses_new/shell?directory=%2Fworkspace ",
+            message_json(),
+            "200 OK",
+        ),
+        6 => (
             "POST /session/ses_new/abort?directory=%2Fworkspace ",
             "true".into(),
             "200 OK",
@@ -135,6 +163,10 @@ fn request_expectation(index: usize) -> (&'static str, String, &'static str) {
             "200 OK",
         ),
     }
+}
+
+fn message_json() -> String {
+    r#"{"info":{"id":"msg_shell","sessionID":"ses_new","role":"assistant","time":{"created":3,"completed":4},"parentID":"msg_user","modelID":"gpt-test","providerID":"openai","mode":"build","cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"finish":"stop"},"parts":[]}"#.into()
 }
 
 fn read_request(stream: &mut TcpStream) -> String {

@@ -10,11 +10,32 @@ pub(super) struct SessionDraft {
     pub(super) text: String,
     pub(super) attached_files: HashSet<String>,
     pub(super) attached_images: Vec<PromptImage>,
+    pub(super) prompt_mode: super::prompt_mode::PromptMode,
     pub(super) updated_at: u64,
 }
 
 impl Workspace {
     pub(super) fn composer_changed(&mut self, directory: &str, cx: &mut Context<Self>) {
+        if self.update_prompt_mode(directory, cx) {
+            self.capture_draft(directory, false, cx);
+            return;
+        }
+        if self
+            .tabs
+            .iter_mut()
+            .find(|tab| tab.directory == directory)
+            .is_some_and(|tab| {
+                if tab.prompt_mode == super::prompt_mode::PromptMode::Shell {
+                    tab.composer_completion = None;
+                    true
+                } else {
+                    false
+                }
+            })
+        {
+            self.capture_draft(directory, false, cx);
+            return;
+        }
         self.refresh_composer_completion(directory, cx);
         self.capture_draft(directory, false, cx);
     }
@@ -50,6 +71,7 @@ impl Workspace {
                     text,
                     attached_files,
                     attached_images,
+                    prompt_mode: tab.prompt_mode,
                     updated_at: super::draft_persistence::now_millis(),
                 },
             );
@@ -74,6 +96,7 @@ impl Workspace {
             }
             tab.attached_files = draft.attached_files;
             tab.attached_images = draft.attached_images;
+            tab.prompt_mode = draft.prompt_mode;
             tab.editor
                 .update(cx, |editor, cx| editor.restore_text(draft.text, cx));
         }

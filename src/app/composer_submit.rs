@@ -13,6 +13,15 @@ impl Workspace {
         text: String,
         cx: &mut Context<Self>,
     ) {
+        if self
+            .tabs
+            .iter()
+            .find(|tab| tab.directory == directory)
+            .is_some_and(|tab| tab.prompt_mode == super::prompt_mode::PromptMode::Shell)
+        {
+            self.submit_shell_in(directory, text, cx);
+            return;
+        }
         let trimmed = text.trim();
         if let Some(command) = trimmed.strip_prefix('/') {
             let (name, arguments) = command

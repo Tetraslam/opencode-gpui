@@ -39,11 +39,13 @@ mod pane_resize;
 mod part_format;
 mod part_interaction;
 mod part_merge;
+mod prompt_mode;
 mod reducer;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
 mod settings;
+mod shell_submit;
 mod sidebar_state;
 mod sidebar_view;
 mod tabs;
@@ -143,6 +145,8 @@ pub struct Workspace {
     pub(super) _directory_subscription: Subscription,
     pub(super) _directory_change: Subscription,
     pub(super) directory_suggestions: Arc<Vec<String>>,
+    pub(super) directory_suggestion_query: String,
+    pub(super) command_suggestions: Arc<Vec<workspace_command::Command>>,
     pub(super) directory_completion: Option<Task<()>>,
     pub(super) command_editor: Entity<TextEditor>,
     pub(super) _command_submit: Subscription,

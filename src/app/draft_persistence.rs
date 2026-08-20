@@ -31,6 +31,8 @@ struct PersistedDraft {
     attached_files: Vec<String>,
     #[serde(default)]
     attached_images: Vec<PersistedImage>,
+    #[serde(default)]
+    prompt_mode: super::prompt_mode::PromptMode,
     updated_at: u64,
 }
 
@@ -79,6 +81,7 @@ fn load_drafts_from(path: &std::path::Path) -> HashMap<DraftKey, SessionDraft> {
                     text: draft.text,
                     attached_files: draft.attached_files.into_iter().collect(),
                     attached_images: images,
+                    prompt_mode: draft.prompt_mode,
                     updated_at: draft.updated_at,
                 },
             )
@@ -114,6 +117,7 @@ pub(super) fn write_drafts_to(
                     }
                 })
                 .collect(),
+            prompt_mode: draft.prompt_mode,
             updated_at: draft.updated_at,
         })
         .collect::<Vec<_>>();
@@ -197,6 +201,7 @@ mod tests {
                     image: std::sync::Arc::new(Image::from_bytes(ImageFormat::Png, vec![1, 2, 3])),
                     data_url: Some("data:image/png;base64,AQID".into()),
                 }],
+                prompt_mode: super::super::prompt_mode::PromptMode::Shell,
                 updated_at: 42,
             },
         )]);
@@ -205,6 +210,10 @@ mod tests {
         assert_eq!(loaded[&key].text, "review @src/main.rs");
         assert!(loaded[&key].attached_files.contains("src/main.rs"));
         assert_eq!(loaded[&key].attached_images[0].image.bytes, [1, 2, 3]);
+        assert_eq!(
+            loaded[&key].prompt_mode,
+            super::super::prompt_mode::PromptMode::Shell
+        );
         assert_eq!(fs::read_dir(&root).expect("read fixture").count(), 1);
         fs::remove_dir_all(root).expect("remove fixture");
     }

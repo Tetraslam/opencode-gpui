@@ -12,28 +12,31 @@ use super::Workspace;
 impl Workspace {
     pub(super) fn refresh_directory_suggestions(&mut self, query: String, cx: &mut Context<Self>) {
         self.overlay_selection = 0;
+        self.directory_suggestion_query.clone_from(&query);
+        self.directory_suggestions = Arc::new(Vec::new());
         let roots = completion_roots(self.active_directory());
         let search = query.clone();
         let completion = cx.background_spawn(async move { complete_directories(&search, &roots) });
         self.directory_completion = Some(cx.spawn(async move |workspace, cx| {
-            let suggestions = Arc::new(completion.await);
+            let suggestions = completion.await;
             let _ = workspace.update(cx, |workspace, cx| {
                 if workspace.directory_editor.read(cx).text() == query {
-                    workspace.directory_suggestions = suggestions;
+                    workspace.directory_suggestions =
+                        Arc::new(workspace.merge_directory_candidates(&query, suggestions));
                     cx.notify();
                 }
             });
         }));
     }
 
-    pub(super) fn directory_candidates(&self, query: &str) -> Vec<String> {
+    fn merge_directory_candidates(&self, query: &str, suggestions: Vec<String>) -> Vec<String> {
         let query = query.trim();
         let needle = query.to_lowercase();
         let mut seen = HashSet::new();
         self.known_directories()
             .into_iter()
             .filter(|directory| needle.is_empty() || directory.to_lowercase().contains(&needle))
-            .chain(self.directory_suggestions.iter().cloned())
+            .chain(suggestions)
             .filter(|directory| seen.insert(directory.clone()))
             .take(60)
             .collect()

@@ -1,5 +1,6 @@
 use std::{
     hint::black_box,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -46,6 +47,31 @@ fn direct_interaction_paths_stay_sub_millisecond(cx: &mut TestAppContext) {
         assert!(
             p99 < Duration::from_millis(1),
             "direct interaction p99 {p99:?} exceeded 1 ms"
+        );
+    });
+}
+
+#[gpui::test]
+fn sustained_menu_navigation_stays_sub_millisecond(cx: &mut TestAppContext) {
+    let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
+    workspace.update(cx, |workspace, cx| {
+        workspace.overlay = Overlay::Directory;
+        workspace.directory_suggestions = Arc::new(
+            (0..10_000)
+                .map(|index| format!("/workspace/project-{index}"))
+                .collect(),
+        );
+        let mut samples = Vec::with_capacity(20_000);
+        for _ in 0..20_000 {
+            let started = Instant::now();
+            workspace.move_overlay_selection(1, cx);
+            samples.push(started.elapsed());
+        }
+        samples.sort_unstable();
+        let p99 = samples[samples.len() * 99 / 100];
+        assert!(
+            p99 < Duration::from_millis(1),
+            "menu navigation p99 {p99:?} exceeded 1 ms"
         );
     });
 }

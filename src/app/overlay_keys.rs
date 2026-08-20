@@ -38,14 +38,8 @@ impl Workspace {
             return;
         }
         let count = match self.overlay {
-            Overlay::Directory => {
-                let query = self.directory_editor.read(cx).text();
-                self.directory_candidates(query).len()
-            }
-            Overlay::Command => {
-                let query = self.command_editor.read(cx).text();
-                self.filtered_commands(query).len()
-            }
+            Overlay::Directory => self.directory_suggestions.len(),
+            Overlay::Command => self.command_suggestions.len(),
             Overlay::None => return,
         };
         if count == 0 {

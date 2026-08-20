@@ -4,7 +4,7 @@ use opencode_gpui::{editor::TextEditor, event::SessionStatus};
 use super::{TimelineState, Workspace, command_palette::Overlay};
 
 #[derive(Clone, Copy)]
-pub(super) enum Command {
+pub(crate) enum Command {
     OpenDirectory,
     NewSession,
     ToggleSessions,
@@ -121,6 +121,11 @@ impl Command {
 }
 
 impl Workspace {
+    pub(super) fn refresh_command_suggestions(&mut self, query: &str) {
+        self.overlay_selection = 0;
+        self.command_suggestions = std::sync::Arc::new(self.filtered_commands(query));
+    }
+
     pub(super) fn filtered_commands(&self, query: &str) -> Vec<Command> {
         let query = query.trim().to_lowercase();
         Command::ALL
