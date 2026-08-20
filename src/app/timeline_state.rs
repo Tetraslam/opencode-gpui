@@ -30,6 +30,8 @@ impl TimelineState {
 
 pub(super) struct RenderState<'a> {
     pub(super) expanded_parts: &'a HashSet<PartSelection>,
+    pub(super) collapsed_parts: &'a HashSet<PartSelection>,
+    pub(super) expand_diffs: bool,
     pub(super) selected_part: Option<&'a PartSelection>,
     pub(super) detail_cache: &'a HashMap<PartSelection, Arc<PreparedPart>>,
     pub(super) markdown_cache: &'a HashMap<PartSelection, CachedMarkdown>,

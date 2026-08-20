@@ -164,7 +164,7 @@ impl Render for Workspace {
         let inspector_open = self
             .active_tab()
             .is_some_and(|tab| tab.timeline.session_id().is_some())
-            && window.bounds().size.width >= px(1_240.0);
+            && window.bounds().size.width >= px(ui_size::INSPECTOR_BREAKPOINT);
         let inspector = inspector_open.then(|| self.render_inspector());
         let inspector_resize = inspector_open.then(|| Self::render_inspector_resize_handle(cx));
         let message_count = match self.active_tab().map(|tab| &tab.timeline) {
@@ -220,7 +220,7 @@ impl Render for Workspace {
                             .flex_1()
                             .flex()
                             .flex_col()
-                            .bg(rgb(color::SURFACE))
+                            .bg(rgb(color::BASE))
                             .child(pane_header(
                                 conversation_title,
                                 format!("{message_count:>4} messages"),
@@ -251,14 +251,14 @@ pub(super) fn centered_message(message: &'static str) -> gpui::AnyElement {
         .into_any_element()
 }
 
-fn pane_header(label: gpui::SharedString, value: String) -> gpui::AnyElement {
+pub(super) fn pane_header(label: gpui::SharedString, value: String) -> gpui::AnyElement {
     div()
         .h(px(ui_size::PANE_HEADER))
         .flex_none()
         .flex()
         .items_center()
         .justify_between()
-        .px_2()
+        .px_3()
         .bg(rgb(color::SURFACE))
         .border_b_1()
         .border_color(rgb(color::BORDER))

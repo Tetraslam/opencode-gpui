@@ -26,6 +26,8 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let default_expanded =
+            self.settings.expand_diffs && super::part_format::produces_diff(&part);
         self.select_part(selection.clone(), part, cx);
         let Some(tab) = self.active_tab_mut() else {
             return;
@@ -33,7 +35,15 @@ impl Workspace {
         let handle = tab.timeline_scroll.clone();
         let old_max = handle.max_offset().height;
         let preserve_lower_edge = !tab.follow_tail;
-        if !tab.expanded_parts.remove(&selection) {
+        let expanded = tab.expanded_parts.contains(&selection)
+            || (default_expanded && !tab.collapsed_parts.contains(&selection));
+        if expanded {
+            tab.expanded_parts.remove(&selection);
+            if default_expanded {
+                tab.collapsed_parts.insert(selection);
+            }
+        } else {
+            tab.collapsed_parts.remove(&selection);
             tab.expanded_parts.insert(selection);
         }
         if preserve_lower_edge {

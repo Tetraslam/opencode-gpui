@@ -19,6 +19,7 @@ pub(super) struct RenderAsset {
 
 enum CachedRender {
     Ready(RenderAsset),
+    // Render failures are deterministic for a source; retain fallback state to avoid hot retries.
     Failed,
 }
 

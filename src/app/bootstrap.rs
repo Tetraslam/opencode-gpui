@@ -80,6 +80,7 @@ impl Workspace {
             draft_path: super::draft_persistence::draft_path(),
             directory_history: super::directory_history::load_directory_history(),
             directory_history_save: None,
+            settings: super::settings::load(),
             sessions_open: false,
             session_pane_width: super::pane_resize::load_session_pane_width(),
             inspector_width: super::pane_resize::load_inspector_width(),

@@ -79,6 +79,7 @@ impl Workspace {
                             workspace.apply_events(batch, Some(&directory));
                             workspace.refresh_markdown(&directory, cx);
                             workspace.refresh_image_cache(&directory, cx);
+                            workspace.prepare_default_diffs(&directory, cx);
                             if refresh_sidebar {
                                 workspace.refresh_sidebar_for_directory(&directory, cx);
                             }

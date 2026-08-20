@@ -57,17 +57,34 @@ impl Workspace {
         part: Part,
         cx: &mut Context<Self>,
     ) {
-        let Some(tab) = self.active_tab_mut() else {
+        let Some(directory) = self.active_directory().map(str::to_owned) else {
             return;
         };
-        tab.selected_part = Some(selection.clone());
-        if tab.detail_cache.contains_key(&selection)
-            || !tab.preparing_parts.insert(selection.clone())
-        {
+        if let Some(tab) = self.active_tab_mut() {
+            tab.selected_part = Some(selection.clone());
+        }
+        self.prepare_part_detail(&directory, selection, part, cx);
+    }
+
+    pub(super) fn prepare_part_detail(
+        &mut self,
+        directory: &str,
+        selection: PartSelection,
+        part: Part,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) else {
+            return;
+        };
+        let cache_current = tab.detail_cache.get(&selection).is_some_and(|prepared| {
+            !super::part_format::produces_diff(&part) || prepared.diff_lines.is_some()
+        });
+        if cache_current || !tab.preparing_parts.insert(selection.clone()) {
             cx.notify();
             return;
         }
-        let directory = tab.directory.clone();
+        let owner_directory = directory.to_owned();
+        let task_directory = owner_directory.clone();
 
         let preparation = cx.background_spawn(async move { Arc::new(PreparedPart::build(&part)) });
         let task = cx.spawn(async move |workspace, cx| {
@@ -76,7 +93,7 @@ impl Workspace {
                 let Some(tab) = workspace
                     .tabs
                     .iter_mut()
-                    .find(|tab| tab.directory == directory)
+                    .find(|tab| tab.directory == task_directory)
                 else {
                     return;
                 };
@@ -88,7 +105,11 @@ impl Workspace {
                 cx.notify();
             });
         });
-        if let Some(tab) = self.active_tab_mut() {
+        if let Some(tab) = self
+            .tabs
+            .iter_mut()
+            .find(|tab| tab.directory == owner_directory)
+        {
             tab.detail_tasks.push(task);
         }
         cx.notify();
@@ -109,28 +130,13 @@ impl Workspace {
             .flex_none()
             .flex()
             .flex_col()
+            .bg(rgb(color::SURFACE))
             .border_l_1()
             .border_color(rgb(color::BORDER))
-            .child(
-                div()
-                    .h(px(ui_size::PANE_HEADER))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_3()
-                    .bg(rgb(color::SURFACE))
-                    .border_b_1()
-                    .border_color(rgb(color::BORDER))
-                    .font_family(MONO_FONT)
-                    .text_xs()
-                    .text_color(rgb(color::TEXT_DIM))
-                    .child("session")
-                    .child(part.map_or_else(
-                        || SharedString::from("--"),
-                        |part| SharedString::from(part.kind.clone()),
-                    )),
-            )
+            .child(super::chrome::pane_header(
+                "session".into(),
+                part.map_or_else(|| "--".to_owned(), |part| part.kind.clone()),
+            ))
             .child(
                 div()
                     .id("inspector-body")
@@ -201,6 +207,9 @@ pub(super) fn render_part_detail(
         )
     } else if prepared.tool.is_some() {
         div()
+            .flex()
+            .flex_col()
+            .gap_2()
             .child(detail_section(
                 "input",
                 prepared.input.clone().unwrap_or_else(|| "{}".into()),
@@ -226,11 +235,10 @@ pub(super) fn render_part_detail(
             "detail-{}-{inspector}",
             prepared.kind
         )))
-        .when(inspector, gpui::Styled::px_3)
+        .when(inspector, gpui::Styled::p_3)
         .when(!inspector, |detail| {
-            detail.pl(px(ui_size::TOOL_CONTENT_X)).pr_3()
+            detail.pl(px(ui_size::TOOL_CONTENT_X)).pr_3().pt_2().pb_3()
         })
-        .pb_3()
         .bg(rgb(if inspector {
             color::SURFACE
         } else {
@@ -242,7 +250,6 @@ pub(super) fn render_part_detail(
 
 fn detail_section(label: &'static str, content: SharedString) -> gpui::AnyElement {
     div()
-        .mt_2()
         .p_3()
         .overflow_hidden()
         .rounded_sm()

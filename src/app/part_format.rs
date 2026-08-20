@@ -1,14 +1,32 @@
 use gpui::{SharedString, div, prelude::*, px, rgb};
-use opencode_gpui::{model::Part, theme::color};
+use opencode_gpui::{
+    model::Part,
+    theme::{MONO_FONT, color, size as ui_size},
+};
 
 pub(super) fn label(text: &str, width: f32, color_value: u32) -> gpui::AnyElement {
     div()
         .w(px(width))
         .flex_none()
+        .flex()
+        .justify_center()
+        .font_family(MONO_FONT)
         .text_xs()
         .text_color(rgb(color_value))
         .child(SharedString::from(text.to_owned()))
         .into_any_element()
+}
+
+pub(super) fn markers(
+    marker: &str,
+    kind: &str,
+    marker_color: u32,
+    kind_color: u32,
+) -> [gpui::AnyElement; 2] {
+    [
+        label(marker, ui_size::MARKER_COL, marker_color),
+        label(kind, ui_size::KIND_COL, kind_color),
+    ]
 }
 
 pub(super) fn kind_color(kind: &str) -> u32 {
@@ -24,6 +42,17 @@ pub(super) fn kind_color(kind: &str) -> u32 {
 
 pub(super) fn is_tool_part(part: &Part) -> bool {
     part.kind == "tool" || part.data.get("tool").is_some()
+}
+
+pub(super) fn produces_diff(part: &Part) -> bool {
+    matches!(tool_name(part), "apply_patch" | "patch")
+        && part
+            .data
+            .get("state")
+            .and_then(|state| state.get("metadata"))
+            .and_then(|metadata| metadata.get("diff"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|diff| !diff.is_empty())
 }
 
 pub(super) fn part_label(part: &Part) -> String {

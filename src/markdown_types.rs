@@ -106,9 +106,9 @@ impl Document {
                     inline_requests(content, &mut requests);
                 }
                 Block::List { items, .. } => {
-                    items
-                        .iter()
-                        .for_each(|item| inline_requests(item, &mut requests));
+                    for item in items {
+                        inline_requests(item, &mut requests);
+                    }
                 }
                 Block::Table { header, rows } => {
                     header

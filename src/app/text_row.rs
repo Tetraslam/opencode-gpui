@@ -5,7 +5,7 @@ use opencode_gpui::{
     theme::{color, size as ui_size},
 };
 
-use super::{PartSelection, Workspace, part_format::label};
+use super::{PartSelection, Workspace, part_format::markers};
 
 impl Workspace {
     pub(super) fn render_text_part(
@@ -24,20 +24,19 @@ impl Workspace {
             .flex()
             .gap_2()
             .overflow_hidden()
-            .when(selected, |row| row.bg(rgb(color::SELECTED)))
+            .when(selected, |row| row.bg(rgb(color::SURFACE)))
             .cursor_pointer()
             .hover(|row| row.bg(rgb(color::HOVER)))
             .on_click(cx.listener(move |workspace, _: &ClickEvent, _, cx| {
                 workspace.select_part(selection.clone(), click_part.clone(), cx);
             }))
-            .child(label("·", ui_size::MARKER_COL, color::BLUE))
-            .child(label("", 18.0, color::BLUE))
+            .children(markers("·", "", color::BLUE, color::BLUE))
             .child(div().min_w_0().flex_1().child(document.map_or_else(
                 || {
                     div()
                         .whitespace_normal()
                         .text_sm()
-                        .line_height(px(20.0))
+                        .line_height(px(ui_size::LINE_PROSE))
                         .text_color(rgb(color::TEXT))
                         .child(SharedString::from(
                             part.text().unwrap_or_default().to_owned(),

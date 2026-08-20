@@ -110,6 +110,7 @@ fn workspace(
             )),
             directory_history: HashMap::new(),
             directory_history_save: None,
+            settings: super::settings::Settings::default(),
             sessions_open: false,
             session_pane_width: gpui::px(ui_size::SESSION_PANE),
             inspector_width: gpui::px(ui_size::INSPECTOR),

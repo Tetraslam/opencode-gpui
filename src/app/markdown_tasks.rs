@@ -67,11 +67,11 @@ pub(super) fn checkbox(state: Option<TaskState>, marker: String) -> gpui::AnyEle
                 .rounded_sm()
                 .border_1()
                 .border_color(rgb(task_color(state)))
+                .text_xs()
+                .text_color(rgb(task_color(state)))
                 .when(state == TaskState::Checked, |box_| {
                     box_.bg(rgb(color::GREEN)).text_color(rgb(color::BASE))
                 })
-                .text_xs()
-                .text_color(rgb(task_color(state)))
                 .child(marker),
         )
         .into_any_element()

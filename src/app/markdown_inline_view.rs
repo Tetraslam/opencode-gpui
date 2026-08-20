@@ -87,7 +87,7 @@ fn render_text(content: &Inline, range: Range<usize>, identity: usize) -> gpui::
     InteractiveText::new(
         (
             "markdown-inline",
-            content as *const Inline as usize ^ identity,
+            std::ptr::from_ref(content) as usize ^ identity,
         ),
         styled,
     )

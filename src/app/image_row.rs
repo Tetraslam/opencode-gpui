@@ -5,10 +5,10 @@ use gpui::{
 };
 use opencode_gpui::{
     model::Part,
-    theme::{MONO_FONT, color, size as ui_size},
+    theme::{MONO_FONT, color},
 };
 
-use super::{PartSelection, Workspace, part_format::label};
+use super::{PartSelection, Workspace, part_format::markers};
 
 impl Workspace {
     pub(super) fn render_image_part(
@@ -31,14 +31,13 @@ impl Workspace {
             .py_2()
             .flex()
             .gap_2()
-            .when(selected, |row| row.bg(rgb(color::SELECTED)))
+            .when(selected, |row| row.bg(rgb(color::SURFACE)))
             .cursor_pointer()
             .hover(|row| row.bg(rgb(color::HOVER)))
             .on_click(cx.listener(move |workspace, _: &ClickEvent, _, cx| {
                 workspace.select_part(selection.clone(), click_part.clone(), cx);
             }))
-            .child(label("·", ui_size::MARKER_COL, color::CYAN))
-            .child(label("", 18.0, color::CYAN))
+            .children(markers("·", "", color::CYAN, color::CYAN))
             .child(
                 div()
                     .w(px(320.0))

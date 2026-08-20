@@ -1,7 +1,7 @@
 use gpui::{Context, Focusable, SharedString, div, prelude::*, px, rgb};
 use opencode_gpui::{
     event::SessionStatus,
-    theme::{MONO_FONT, color},
+    theme::{MONO_FONT, color, size as ui_size},
 };
 
 use super::{TimelineState, Workspace};
@@ -23,12 +23,13 @@ impl Workspace {
         let images = tab.attached_images.clone();
         div()
             .flex_none()
-            .px_3()
-            .pb_2()
+            .pl(px(ui_size::TOOL_CONTENT_X))
+            .pr(px(ui_size::EDGE_INSET))
+            .py_3()
             .bg(rgb(color::BASE))
             .child(
                 div()
-                    .rounded_md()
+                    .rounded_sm()
                     .border_1()
                     .border_color(rgb(if error.is_some() {
                         color::RED
@@ -39,7 +40,7 @@ impl Workspace {
                     .children((!images.is_empty()).then(|| Self::render_prompt_images(&images, cx)))
                     .child(
                         div()
-                            .min_h(px(36.0))
+                            .min_h(px(ui_size::COMPOSER_PROMPT))
                             .px_2()
                             .flex()
                             .items_start()
@@ -48,7 +49,7 @@ impl Workspace {
                             .text_sm()
                             .child(
                                 div()
-                                    .h(px(34.0))
+                                    .h(px(ui_size::COMPOSER_PROMPT))
                                     .flex()
                                     .items_center()
                                     .text_color(rgb(color::ACCENT))
@@ -58,7 +59,7 @@ impl Workspace {
                     )
                     .child(
                         div()
-                            .h(px(26.0))
+                            .h(px(ui_size::MESSAGE_HEADER))
                             .px_2()
                             .flex()
                             .items_center()

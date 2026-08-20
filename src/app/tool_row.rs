@@ -9,7 +9,7 @@ use opencode_gpui::{
 use super::{
     PartSelection, Workspace,
     inspector::{self, PreparedPart},
-    part_format::{label, one_line_summary, part_marker, tool_name},
+    part_format::{markers, one_line_summary, part_marker, tool_name},
 };
 
 impl Workspace {
@@ -33,7 +33,7 @@ impl Workspace {
         div()
             .id(SharedString::from(part.id.clone()))
             .overflow_hidden()
-            .when(expanded, |row| row.bg(rgb(color::SELECTED)))
+            .when(expanded, |row| row.bg(rgb(color::SURFACE)))
             .cursor_pointer()
             .hover(|row| row.bg(rgb(color::HOVER)))
             .on_click(cx.listener(move |workspace, _: &ClickEvent, window, cx| {
@@ -41,19 +41,19 @@ impl Workspace {
             }))
             .child(
                 div()
-                    .min_h(px(30.0))
+                    .min_h(px(ui_size::ROW_TOOL))
                     .px_3()
                     .py_1()
                     .flex()
                     .items_start()
                     .gap_2()
                     .font_family(MONO_FONT)
-                    .child(label(
+                    .children(markers(
                         if expanded { "v" } else { marker },
-                        ui_size::MARKER_COL,
+                        tool_icon(tool),
                         marker_color,
+                        color::TOOL,
                     ))
-                    .child(label(tool_icon(tool), 18.0, color::TOOL))
                     .child(
                         div()
                             .min_w_0()
@@ -61,7 +61,7 @@ impl Workspace {
                             .whitespace_normal()
                             .when(tool == "bash", gpui::Styled::text_xs)
                             .when(tool != "bash", gpui::Styled::text_sm)
-                            .line_height(px(20.0))
+                            .line_height(px(ui_size::LINE_PROSE))
                             .text_color(rgb(color::TEXT))
                             .child(one_line_summary(part, directory)),
                     ),
@@ -142,7 +142,7 @@ fn render_output_preview(preview: OutputPreview) -> gpui::AnyElement {
         .border_color(rgb(color::BORDER))
         .font_family(MONO_FONT)
         .text_xs()
-        .line_height(px(18.0))
+        .line_height(px(ui_size::LINE_CODE))
         .whitespace_normal()
         .text_color(rgb(color::TEXT_DIM))
         .child(preview.text)

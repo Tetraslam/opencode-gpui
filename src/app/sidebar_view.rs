@@ -26,7 +26,7 @@ impl Workspace {
             .and_then(|session_id| self.session(session_id))
             .map_or("unknown", |session| session.version.as_str());
         div()
-            .px_4()
+            .px_3()
             .py_3()
             .border_b_1()
             .border_color(rgb(color::BORDER))

@@ -8,6 +8,7 @@ mod composer_completion_view;
 mod composer_images;
 mod composer_slashes;
 mod composer_submit;
+mod default_diffs;
 mod diff_view;
 mod directory_completion;
 mod directory_history;
@@ -42,6 +43,7 @@ mod reducer;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
+mod settings;
 mod sidebar_state;
 mod sidebar_view;
 mod tabs;
@@ -129,6 +131,7 @@ pub struct Workspace {
     draft_path: std::path::PathBuf,
     directory_history: HashMap<String, u64>,
     directory_history_save: Option<Task<()>>,
+    pub(super) settings: settings::Settings,
     pub(super) sessions_open: bool,
     pub(super) session_pane_width: gpui::Pixels,
     pub(super) inspector_width: gpui::Pixels,
@@ -169,6 +172,7 @@ impl Workspace {
         let tab = self.active_tab_mut().expect("active directory has a tab");
         tab.selected_part = None;
         tab.expanded_parts.clear();
+        tab.collapsed_parts.clear();
         tab.detail_cache.clear();
         tab.preparing_parts.clear();
         tab.detail_tasks.clear();
@@ -223,6 +227,7 @@ impl Workspace {
                 };
                 workspace.refresh_markdown(&task_directory, cx);
                 workspace.refresh_image_cache(&task_directory, cx);
+                workspace.prepare_default_diffs(&task_directory, cx);
                 cx.notify();
             });
         });

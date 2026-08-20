@@ -1,4 +1,4 @@
-use gpui::Context;
+use gpui::{AppContext, Context};
 use opencode_gpui::{editor::TextEditor, event::SessionStatus};
 
 use super::{TimelineState, Workspace, command_palette::Overlay};
@@ -17,10 +17,11 @@ pub(super) enum Command {
     PreviousWorkspace,
     CloseWorkspace,
     FocusComposer,
+    ToggleDiffExpansion,
 }
 
 impl Command {
-    const ALL: [Self; 12] = [
+    const ALL: [Self; 13] = [
         Self::OpenDirectory,
         Self::NewSession,
         Self::ToggleSessions,
@@ -33,6 +34,7 @@ impl Command {
         Self::PreviousWorkspace,
         Self::CloseWorkspace,
         Self::FocusComposer,
+        Self::ToggleDiffExpansion,
     ];
 
     pub(super) const fn label(self) -> &'static str {
@@ -49,6 +51,7 @@ impl Command {
             Self::PreviousWorkspace => "previous workspace",
             Self::CloseWorkspace => "close workspace",
             Self::FocusComposer => "focus composer",
+            Self::ToggleDiffExpansion => "toggle automatic diff expansion",
         }
     }
 
@@ -59,7 +62,7 @@ impl Command {
             | Self::PreviousWorkspace
             | Self::CloseWorkspace => "workspace",
             Self::FocusComposer => "prompt",
-            Self::CloseInspector => "view",
+            Self::CloseInspector | Self::ToggleDiffExpansion => "view",
             Self::NewSession
             | Self::ToggleSessions
             | Self::NextSession
@@ -79,7 +82,11 @@ impl Command {
             Self::NextWorkspace => "ctrl+tab",
             Self::PreviousWorkspace => "ctrl+shift+tab",
             Self::CloseWorkspace => "ctrl+w",
-            Self::AbortSession | Self::LoadOlder | Self::CloseInspector | Self::FocusComposer => "",
+            Self::AbortSession
+            | Self::LoadOlder
+            | Self::CloseInspector
+            | Self::FocusComposer
+            | Self::ToggleDiffExpansion => "",
         }
     }
 
@@ -107,7 +114,8 @@ impl Command {
             | Self::NewSession
             | Self::ToggleSessions
             | Self::CloseWorkspace
-            | Self::FocusComposer => true,
+            | Self::FocusComposer
+            | Self::ToggleDiffExpansion => true,
         }
     }
 }
@@ -165,6 +173,34 @@ impl Workspace {
             }
             Command::CloseWorkspace => self.close_directory(self.active_tab, cx),
             Command::FocusComposer => self.focus_editor_on_render = true,
+            Command::ToggleDiffExpansion => {
+                self.settings.expand_diffs = !self.settings.expand_diffs;
+                let enabled = self.settings.expand_diffs;
+                let settings = self.settings.clone();
+                let save = cx.background_spawn(async move { super::settings::save(&settings) });
+                cx.spawn(async move |workspace, cx| {
+                    if let Err(error) = save.await {
+                        let _ = workspace.update(cx, |workspace, cx| {
+                            if let Some(tab) = workspace.active_tab_mut() {
+                                tab.prompt_error =
+                                    Some(format!("could not save diff preference: {error}").into());
+                            }
+                            cx.notify();
+                        });
+                    }
+                })
+                .detach();
+                if enabled {
+                    let directories = self
+                        .tabs
+                        .iter()
+                        .map(|tab| tab.directory.clone())
+                        .collect::<Vec<_>>();
+                    for directory in directories {
+                        self.prepare_default_diffs(&directory, cx);
+                    }
+                }
+            }
         }
         if self.overlay == Overlay::None {
             self.focus_editor_on_render = true;

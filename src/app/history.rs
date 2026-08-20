@@ -51,6 +51,7 @@ impl Workspace {
                 }
                 workspace.refresh_markdown(&task_directory, cx);
                 workspace.refresh_image_cache(&task_directory, cx);
+                workspace.prepare_default_diffs(&task_directory, cx);
                 cx.notify();
             });
         });

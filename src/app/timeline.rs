@@ -5,7 +5,7 @@ use opencode_gpui::{
 };
 
 use super::{
-    PartSelection, TimelineState, Workspace, chrome::centered_message, part_format::label,
+    PartSelection, TimelineState, Workspace, chrome::centered_message, part_format::markers,
     timeline_state::RenderState,
 };
 
@@ -47,12 +47,12 @@ impl Workspace {
                 let older = (!tab.history_exhausted).then(|| {
                     div()
                         .id("older-messages")
-                        .h(px(26.0))
+                        .h(px(ui_size::MESSAGE_HEADER))
                         .flex()
                         .items_center()
                         .justify_center()
                         .cursor_pointer()
-                        .bg(rgb(color::SURFACE))
+                        .bg(rgb(color::BASE))
                         .font_family(MONO_FONT)
                         .text_xs()
                         .text_color(rgb(color::TEXT_DIM))
@@ -69,6 +69,8 @@ impl Workspace {
                 let event_handle = scroll_handle.clone();
                 let render_state = RenderState {
                     expanded_parts: &tab.expanded_parts,
+                    collapsed_parts: &tab.collapsed_parts,
+                    expand_diffs: self.settings.expand_diffs,
                     selected_part: tab.selected_part.as_ref(),
                     detail_cache: &tab.detail_cache,
                     markdown_cache: &tab.markdown.documents,
@@ -130,8 +132,7 @@ impl Workspace {
                         .px_3()
                         .bg(rgb(color::SURFACE))
                         .font_family(MONO_FONT)
-                        .child(label("·", ui_size::MARKER_COL, role_color))
-                        .child(label("", 18.0, role_color))
+                        .children(markers("·", "", role_color, role_color))
                         .child(
                             div()
                                 .min_w_0()
@@ -177,7 +178,9 @@ impl Workspace {
             message_id: part.message_id.clone(),
             part_id: part.id.clone(),
         };
-        let expanded = state.expanded_parts.contains(&selection);
+        let default_expanded = state.expand_diffs && super::part_format::produces_diff(part);
+        let expanded = state.expanded_parts.contains(&selection)
+            || (default_expanded && !state.collapsed_parts.contains(&selection));
         let selected = state.selected_part == Some(&selection);
         if part.kind == "text" {
             if part

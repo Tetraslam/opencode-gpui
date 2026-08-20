@@ -12,6 +12,7 @@ criteria. Raw investigation notes belong in `tmp/`; resolved facts and decisions
 - [ ] Smooth growth and shrinkage for explicit newlines and soft wrapping up to the eight-line cap.
 - [x] Preserve multiline drafts, file mentions, and images across sessions and restarts.
 - [x] Support standard word movement, deletion, selection, undo, and redo.
+- [x] Align the composer to the shared trace content column and use equal outer spacing.
 
 Acceptance:
 
@@ -26,6 +27,7 @@ Acceptance:
 - [x] Paste native clipboard images and prepare data URLs off GPUI's thread.
 - [x] Persist image drafts and render removable composer thumbnails.
 - [x] Send image parts through normal prompts and server slash commands.
+- [x] Replace nested image badges with one restrained preview card and metadata row.
 
 Acceptance:
 
@@ -49,8 +51,11 @@ Acceptance:
 - [x] Recognize bare URLs and safe file paths without turning arbitrary punctuation into links.
 - [x] Render file paths as file/directory chips with a secondary path surface.
 - [x] Improve task states for `[ ]`, `[x]`, and in-progress/custom markers.
-- [ ] Add semantic footnotes, `<kbd>` chips, and LaTeX rendering.
-- [ ] Render Mermaid diagrams rather than only labeling their source fences.
+- [ ] Add semantic footnotes and full `<kbd>` chips.
+- [x] Render Mermaid diagrams as bounded, cached SVG with styled source fallback.
+- [x] Render inline and display LaTeX as bounded, cached SVG with source fallback.
+- [x] Render task-list states as status boxes rather than bullets plus textual markers.
+- [x] Open explicit and detected links without triggering trace-row selection.
 - [x] Improve table row separation and scanning contrast without dense grid noise.
 
 Automatic detection requirements:
@@ -89,6 +94,9 @@ Resolved core palette:
 - [x] Make structural table boundaries and active controls visibly distinct from adjacent surfaces.
 - [x] Reserve strong accent colors for focus, status, links, and meaningful semantic markers.
 - [x] Use proportional text for long prose and monospace for code, paths, commands, and aligned data.
+- [x] Preserve the dark base surface between information-bearing sections instead of washing selected
+      long-form content with the strongest selection color.
+- [x] Derive trace marker and content columns from one shared grid.
 
 ### Persistent context sidebar
 
@@ -106,6 +114,14 @@ color. Wrapped lines align with the task text rather than the marker.
 
 The panel remains persistent; sections with no useful content may collapse or hide. It must not replace
 the current resizable inspector's selected-part details without a deliberate combined layout.
+
+- [x] Normalize persistent context and selected-part detail to one inset and continuous parent surface.
+
+### Diff expansion
+
+- [x] Expand completed patch diffs by default.
+- [x] Persist the default through `settings.json` and expose a command-palette toggle.
+- [x] Preserve an explicit per-part collapse while automatic expansion is enabled.
 
 ## Duplicate directory tabs
 
@@ -171,8 +187,8 @@ are features, not placeholder slash entries. Hide commands only when the server 
 
 ## Later rich rendering
 
-- [ ] Mermaid-to-SVG pipeline with bounded background rendering and cache invalidation.
-- [ ] LaTeX inline/block rendering with accessible plaintext fallback.
+- [x] Mermaid-to-SVG pipeline with bounded background rendering and cache invalidation.
+- [x] LaTeX inline/block rendering with plaintext fallback.
 - [ ] Diff viewer inspired by dedicated review tools: file tree, unified/split modes, hunk folding,
       syntax highlighting, comments-ready anchors, and keyboard navigation.
 - [ ] `<kbd>` and semantic footnote components.

@@ -1,7 +1,7 @@
 use gpui::{
     ClickEvent, Context, ObjectFit, SharedString, StyledImage, div, img, prelude::*, px, rgb,
 };
-use opencode_gpui::theme::{MONO_FONT, color};
+use opencode_gpui::theme::{MONO_FONT, color, size as ui_size};
 
 use super::{Workspace, image_attachment::PromptImage};
 
@@ -12,7 +12,7 @@ impl Workspace {
     ) -> gpui::AnyElement {
         div()
             .id("prompt-images")
-            .h(px(100.0))
+            .h(px(ui_size::ATTACHMENT_HEIGHT + ui_size::GAP))
             .w_full()
             .px_2()
             .pt_2()
@@ -32,8 +32,8 @@ impl Workspace {
         let ready = image.data_url.is_some();
         div()
             .id(SharedString::from(format!("prompt-image-{}", image.id)))
-            .w(px(116.0))
-            .h(px(88.0))
+            .w(px(ui_size::ATTACHMENT_WIDTH))
+            .h(px(ui_size::ATTACHMENT_HEIGHT))
             .flex_none()
             .overflow_hidden()
             .rounded_sm()
@@ -41,15 +41,19 @@ impl Workspace {
             .border_color(rgb(if ready { color::BORDER } else { color::ACCENT }))
             .bg(rgb(color::ELEVATED))
             .child(
-                div().h(px(64.0)).w_full().bg(rgb(color::BASE)).child(
-                    img(image.image.clone())
-                        .size_full()
-                        .object_fit(ObjectFit::Cover),
-                ),
+                div()
+                    .h(px(ui_size::ATTACHMENT_PREVIEW))
+                    .w_full()
+                    .bg(rgb(color::BASE))
+                    .child(
+                        img(image.image.clone())
+                            .size_full()
+                            .object_fit(ObjectFit::Cover),
+                    ),
             )
             .child(
                 div()
-                    .h(px(23.0))
+                    .h(px(ui_size::ATTACHMENT_HEIGHT - ui_size::ATTACHMENT_PREVIEW))
                     .px_2()
                     .flex()
                     .items_center()
@@ -58,23 +62,13 @@ impl Workspace {
                     .border_color(rgb(color::BORDER_SUBTLE))
                     .font_family(MONO_FONT)
                     .text_xs()
-                    .child(
-                        div()
-                            .px_1()
-                            .rounded_sm()
-                            .bg(rgb(color::ACCENT))
-                            .text_color(rgb(color::BASE))
-                            .child("image"),
-                    )
+                    .child(div().text_color(rgb(color::ACCENT)).child("img"))
                     .child(
                         div()
                             .min_w_0()
                             .flex_1()
-                            .px_1()
                             .truncate()
-                            .rounded_sm()
-                            .bg(rgb(color::BASE))
-                            .text_color(rgb(color::TEXT))
+                            .text_color(rgb(if ready { color::TEXT } else { color::YELLOW }))
                             .child(if ready {
                                 image.filename.clone()
                             } else {
@@ -84,9 +78,16 @@ impl Workspace {
                     .child(
                         div()
                             .id(SharedString::from(format!("remove-{}", image.id)))
+                            .size(px(18.0))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded_sm()
                             .cursor_pointer()
                             .text_color(rgb(color::TEXT_MUTED))
-                            .hover(|button| button.text_color(rgb(color::RED)))
+                            .hover(|button| {
+                                button.bg(rgb(color::HOVER)).text_color(rgb(color::RED))
+                            })
                             .child("x")
                             .on_click(cx.listener(move |workspace, _: &ClickEvent, _, cx| {
                                 workspace.remove_prompt_image(&remove_id, cx);

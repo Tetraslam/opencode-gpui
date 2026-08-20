@@ -100,7 +100,6 @@ fn range_start(range: &str) -> Option<u64> {
 
 pub(super) fn render_diff(lines: &[DiffLine]) -> gpui::AnyElement {
     div()
-        .mt_2()
         .overflow_hidden()
         .rounded_sm()
         .border_1()

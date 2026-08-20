@@ -8,7 +8,7 @@ use opencode_gpui::{
 
 use super::{
     PartSelection, Workspace, inspector,
-    part_format::{kind_color, label, one_line_summary, part_label, part_marker},
+    part_format::{kind_color, markers, one_line_summary, part_label, part_marker},
     timeline_state::RenderState,
 };
 
@@ -26,11 +26,11 @@ impl Workspace {
         div()
             .id(SharedString::from(part.id.clone()))
             .overflow_hidden()
-            .when(expanded, |row| row.bg(rgb(color::SELECTED)))
+            .when(expanded, |row| row.bg(rgb(color::SURFACE)))
             .child(
                 div()
                     .id(SharedString::from(format!("head-{}", part.id)))
-                    .h(px(26.0))
+                    .h(px(ui_size::MESSAGE_HEADER))
                     .flex()
                     .items_center()
                     .gap_2()
@@ -46,12 +46,12 @@ impl Workspace {
                         );
                     }))
                     .font_family(MONO_FONT)
-                    .child(label(
+                    .children(markers(
                         if expanded { "v" } else { marker },
-                        ui_size::MARKER_COL,
+                        "·",
                         marker_color,
+                        kind_color(&part.kind),
                     ))
-                    .child(label("·", 18.0, kind_color(&part.kind)))
                     .child(
                         div()
                             .min_w_0()

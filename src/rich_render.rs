@@ -34,6 +34,11 @@ pub enum RenderError {
     InvalidSize,
 }
 
+/// Renders a bounded rich-markdown request to SVG.
+///
+/// # Errors
+///
+/// Returns an error for oversized input/output, invalid markup, renderer panics, or invalid SVG.
 pub fn render(request: &RenderRequest) -> Result<RenderedSvg, RenderError> {
     if request.source.len() > MAX_INPUT_BYTES {
         return Err(RenderError::InputTooLarge);
@@ -83,9 +88,9 @@ fn render_math(source: &str, display: bool) -> Result<String, RenderError> {
     };
     let text = color::TEXT;
     let foreground = Color::new(
-        ((text >> 16) & 0xff) as f32 / 255.0,
-        ((text >> 8) & 0xff) as f32 / 255.0,
-        (text & 0xff) as f32 / 255.0,
+        f32::from(((text >> 16) & 0xff) as u8) / 255.0,
+        f32::from(((text >> 8) & 0xff) as u8) / 255.0,
+        f32::from((text & 0xff) as u8) / 255.0,
         1.0,
     );
     let options = LayoutOptions::default()
@@ -166,7 +171,7 @@ mod tests {
         .expect("valid Mermaid");
         let svg = String::from_utf8(rendered.bytes).expect("UTF-8 SVG");
         assert!(svg.starts_with("<svg"));
-        assert!(svg.contains("#3d405a") && svg.contains("#9299bd"));
+        assert!(svg.contains(&hex(color::SELECTED)) && svg.contains(&hex(color::TEXT_DIM)));
         assert!(!svg.contains("<foreignObject"));
     }
 
