@@ -30,35 +30,42 @@ These are the next implementation tasks requested in the latest manual test pass
 
 ### Current correction pass
 
-- Position composer attachment descriptors without overlap or crowding. Keep distinct backgrounds for
+- ~~Position composer attachment descriptors without overlap or crowding. Keep distinct backgrounds for
   the type and filename descriptors, rename clipboard-generated files and labels to `image`, and apply
-  the same descriptor treatment to image attachments in the conversation trace.
+  the same descriptor treatment to image attachments in the conversation trace.~~
 - Restore equal outer composer spacing. Keep the real session-status indicator, but integrate it into
   the composer's internal grid instead of rendering a separate left-side card.
 - Surface rejected shell submissions and other composer errors in a prominent visible error region;
   silently refusing a submission is not acceptable.
-- Keep directory-picker title and search controls pinned while result rows scroll. Cycling from the
-  first row to the last must never scroll the search field out of view.
-- Never truncate expanded tool output or inspector output. A collapsed preview may summarize content,
-  but explicit expansion means the user requested the complete result, regardless of line count.
-- Match OpenCode TUI's message hierarchy: user turns are cohesive subtly differentiated blocks;
+- ~~Keep directory-picker title and search controls pinned while result rows scroll. Cycling from the
+  first row to the last must never scroll the search field out of view.~~
+- ~~Never truncate expanded tool output or inspector output. A collapsed preview may summarize content,
+  but explicit expansion means the user requested the complete result, regardless of line count.~~
+- ~~Match OpenCode TUI's message hierarchy: user turns are cohesive subtly differentiated blocks;
   assistant content is the default flat reading flow; assistant agent/mode, model, and elapsed duration
-  appear as restrained metadata after the completed response rather than as a repeated leading banner.
-- Keep the persistent right inspector visible at narrower desktop widths when enough usable content
+  appear as restrained metadata after the completed response rather than as a repeated leading banner.~~
+- Vertically center the assistant completion icon with its metadata text.
+- ~~Keep the persistent right inspector visible at narrower desktop widths when enough usable content
   space remains. Use pane minimum widths and available layout space rather than the current coarse
-  fixed breakpoint.
+  fixed breakpoint.~~
+- Persist the ordered set of open directories and the active workspace across launches. Validate stale
+  paths off GPUI's thread, preserve an intentionally empty window, and keep `OPENCODE_DIRECTORY` as an
+  explicit startup override.
 
 Acceptance:
 
-- Composer and conversation image descriptors are aligned, readable, and never overlap their remove
-  control or preview.
+- ~~Composer and conversation image descriptors are aligned, readable, and never overlap their remove
+  control or preview.~~
 - Composer outer top, bottom, left, and right gaps are equal, and the status indicator reads as part of
   the composer rather than a second card.
 - Rejected shell attachments produce a clearly visible error.
-- Holding Up on the first directory result selects the last result while the search field stays pinned.
-- Expanding a 400+ line shell/tool result exposes every line in both timeline detail and inspector.
-- User and assistant turns can be distinguished at a glance without repetitive role headers.
-- The right inspector remains visible at the tested split-window width shown in the manual screenshot.
+- ~~Holding Up on the first directory result selects the last result while the search field stays pinned.~~
+- ~~Expanding a 400+ line shell/tool result exposes every line in both timeline detail and inspector.~~
+- ~~User and assistant turns can be distinguished at a glance without repetitive role headers.~~
+- The assistant completion icon and metadata text share one visual baseline.
+- ~~The right inspector remains visible at the tested split-window width shown in the manual screenshot.~~
+- Restarting restores every open directory in order and selects the workspace that was active before
+  shutdown; closing every workspace and restarting returns to the directory picker.
 
 ### Selectable text everywhere
 

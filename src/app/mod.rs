@@ -56,6 +56,8 @@ mod timeline_scroll;
 mod timeline_state;
 mod tool_row;
 mod workspace_command;
+mod workspace_layout;
+mod workspace_restore;
 
 #[cfg(test)]
 mod tests;
@@ -125,6 +127,9 @@ pub struct Workspace {
     pub(super) tabs: Vec<tabs::DirectoryTab>,
     pub(super) active_tab: usize,
     pub(super) initial_directory: Option<String>,
+    pub(super) pending_workspace_layout: Option<workspace_layout::WorkspaceLayout>,
+    layout_path: std::path::PathBuf,
+    layout_save: Option<Task<()>>,
     pub(super) overlay: command_palette::Overlay,
     pub(super) overlay_selection: usize,
     pub(super) picker_scroll: gpui::ScrollHandle,

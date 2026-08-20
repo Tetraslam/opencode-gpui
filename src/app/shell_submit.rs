@@ -13,14 +13,14 @@ impl Workspace {
         let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) else {
             return;
         };
-        if command.trim().is_empty() {
-            return;
-        }
         if !tab.attached_images.is_empty() || !tab.attached_files.is_empty() {
             tab.prompt_error = Some("shell mode does not accept attachments".into());
             tab.editor
                 .update(cx, |editor, cx| editor.restore_text(command, cx));
             cx.notify();
+            return;
+        }
+        if command.trim().is_empty() {
             return;
         }
         let Some(session_id) = tab.timeline.session_id().map(str::to_owned) else {

@@ -12,6 +12,7 @@ impl Workspace {
             self.active_tab = index;
             self.select_default_session(cx);
             self.focus_editor_on_render = true;
+            self.persist_workspace_layout(cx);
             cx.notify();
             return self.tabs[index].timeline.session_id().is_none();
         }
@@ -61,6 +62,7 @@ impl Workspace {
         self.active_tab = self.tabs.len() - 1;
         self.focus_editor_on_render = true;
         self.select_default_session(cx);
+        self.persist_workspace_layout(cx);
         cx.notify();
         self.active_tab()
             .is_some_and(|tab| tab.timeline.session_id().is_none())

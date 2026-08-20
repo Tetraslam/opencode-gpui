@@ -1,7 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
     env,
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use gpui::{AppContext, Entity, Task, TestAppContext};
@@ -15,12 +18,16 @@ use opencode_gpui::{
 
 use super::{ServerState, TimelineState, Workspace, command_palette::Overlay, tabs::DirectoryTab};
 
+static TEST_ID: AtomicU64 = AtomicU64::new(1);
+
 #[path = "draft_tests.rs"]
 mod draft_tests;
 #[path = "overlay_tests.rs"]
 mod overlay_tests;
 #[path = "performance_tests.rs"]
 mod performance_tests;
+#[path = "shell_tests.rs"]
+mod shell_tests;
 #[path = "stream_tests.rs"]
 mod stream_tests;
 
@@ -96,6 +103,12 @@ fn workspace(
             tabs: vec![tab],
             active_tab: 0,
             initial_directory: None,
+            pending_workspace_layout: None,
+            layout_path: env::temp_dir().join(format!(
+                "opencode-gpui-test-workspace-{}.json",
+                TEST_ID.fetch_add(1, Ordering::Relaxed)
+            )),
+            layout_save: None,
             overlay: Overlay::None,
             overlay_selection: 0,
             picker_scroll: gpui::ScrollHandle::new(),

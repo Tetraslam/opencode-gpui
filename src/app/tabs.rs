@@ -124,21 +124,7 @@ impl Workspace {
     }
 
     pub(super) fn ensure_initial_tab(&mut self, cx: &mut Context<Self>) {
-        if !self.tabs.is_empty() {
-            return;
-        }
-        let directory = self.initial_directory.take().or_else(|| {
-            let ServerState::Ready { sessions, .. } = &self.server_state else {
-                return None;
-            };
-            sessions
-                .iter()
-                .find(|session| session.parent_id.is_none())
-                .map(|session| session.directory.clone())
-        });
-        if let Some(directory) = directory {
-            self.open_directory(directory, cx);
-        }
+        self.restore_initial_workspace(cx);
     }
 
     pub(super) fn open_directory(&mut self, directory: String, cx: &mut Context<Self>) {

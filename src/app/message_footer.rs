@@ -42,6 +42,8 @@ pub(super) fn render(
             .text_color(rgb(color::TEXT_MUTED))
             .child(
                 div()
+                    .relative()
+                    .bottom(px(1.0))
                     .font_weight(FontWeight::BOLD)
                     .text_color(rgb(color::GREEN))
                     .child("▣"),

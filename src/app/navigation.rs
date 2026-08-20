@@ -136,6 +136,7 @@ impl Workspace {
             self.overlay = Overlay::None;
             self.focus_editor_on_render = true;
         }
+        self.persist_workspace_layout(cx);
         cx.notify();
     }
 
@@ -148,6 +149,7 @@ impl Workspace {
         self.capture_active_draft(true, cx);
         self.dismiss_transients();
         self.active_tab = index;
+        self.persist_workspace_layout(cx);
         cx.notify();
     }
 
