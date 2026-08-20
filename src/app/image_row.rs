@@ -8,7 +8,9 @@ use opencode_gpui::{
     theme::{MONO_FONT, color},
 };
 
-use super::{PartSelection, Workspace, part_format::markers};
+use super::{
+    PartSelection, Workspace, image_attachment::display_image_filename, part_format::markers,
+};
 
 impl Workspace {
     pub(super) fn render_image_part(
@@ -19,12 +21,12 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
         let click_part = part.clone();
-        let filename = part
-            .data
-            .get("filename")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("image")
-            .to_owned();
+        let filename = display_image_filename(
+            part.data
+                .get("filename")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("image"),
+        );
         div()
             .id(SharedString::from(part.id.clone()))
             .px_3()
@@ -54,20 +56,41 @@ impl Workspace {
                             .bg(rgb(color::BASE))
                             .child(img(image).size_full().object_fit(ObjectFit::Contain)),
                     )
-                    .child(
-                        div()
-                            .h(px(24.0))
-                            .px_2()
-                            .flex()
-                            .items_center()
-                            .border_t_1()
-                            .border_color(rgb(color::BORDER_SUBTLE))
-                            .font_family(MONO_FONT)
-                            .text_xs()
-                            .text_color(rgb(color::TEXT_DIM))
-                            .child(filename),
-                    ),
+                    .child(image_descriptor(filename)),
             )
             .into_any_element()
     }
+}
+
+fn image_descriptor(filename: String) -> gpui::AnyElement {
+    div()
+        .h(px(28.0))
+        .px_2()
+        .flex()
+        .items_center()
+        .gap_1()
+        .border_t_1()
+        .border_color(rgb(color::BORDER_SUBTLE))
+        .font_family(MONO_FONT)
+        .text_xs()
+        .child(
+            div()
+                .px_1()
+                .rounded_sm()
+                .bg(rgb(color::ACCENT))
+                .text_color(rgb(color::BASE))
+                .child("image"),
+        )
+        .child(
+            div()
+                .min_w_0()
+                .flex_1()
+                .px_1()
+                .truncate()
+                .rounded_sm()
+                .bg(rgb(color::BASE))
+                .text_color(rgb(color::TEXT))
+                .child(filename),
+        )
+        .into_any_element()
 }

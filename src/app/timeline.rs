@@ -5,8 +5,7 @@ use opencode_gpui::{
 };
 
 use super::{
-    PartSelection, TimelineState, Workspace, chrome::centered_message, part_format::markers,
-    timeline_state::RenderState,
+    PartSelection, TimelineState, Workspace, chrome::centered_message, timeline_state::RenderState,
 };
 
 impl Workspace {
@@ -90,9 +89,10 @@ impl Workspace {
                     }))
                     .children(older)
                     .children(messages.iter().enumerate().map(|(index, message)| {
-                        let show_header =
-                            index == 0 || messages[index - 1].info.role() != message.info.role();
-                        Self::render_message(message, show_header, &render_state, cx)
+                        let last_assistant = !messages[index + 1..]
+                            .iter()
+                            .any(|candidate| candidate.info.role() == "assistant");
+                        Self::render_message(message, messages, last_assistant, &render_state, cx)
                     }));
                 div()
                     .size_full()
@@ -106,52 +106,24 @@ impl Workspace {
 
     fn render_message(
         message: &MessageRecord,
-        show_header: bool,
+        messages: &[MessageRecord],
+        last_assistant: bool,
         state: &RenderState<'_>,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
-        let role: SharedString = message.info.role().into();
-        let detail: SharedString = message.info.detail().into();
-        let role_color = if message.info.role() == "you" {
-            color::BLUE
-        } else {
-            color::GREEN
-        };
-
-        div()
+        let user = message.info.role() == "you";
+        let content = div()
             .id(SharedString::from(message.info.id().to_owned()))
-            .border_b_1()
-            .border_color(rgb(color::BORDER_SUBTLE))
-            .when(show_header, |element| {
-                element.child(
-                    div()
-                        .h(px(ui_size::MESSAGE_HEADER))
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .px_3()
-                        .bg(rgb(color::SURFACE))
-                        .font_family(MONO_FONT)
-                        .children(markers("·", "", role_color, role_color))
-                        .child(
-                            div()
-                                .min_w_0()
-                                .flex_1()
-                                .flex()
-                                .gap_2()
-                                .text_xs()
-                                .text_color(rgb(role_color))
-                                .child(role)
-                                .child(
-                                    div()
-                                        .min_w_0()
-                                        .flex_1()
-                                        .truncate()
-                                        .text_color(rgb(color::TEXT_DIM))
-                                        .child(detail),
-                                ),
-                        ),
-                )
+            .when(user, |element| {
+                element
+                    .mx_3()
+                    .mt_3()
+                    .mb_2()
+                    .overflow_hidden()
+                    .rounded_sm()
+                    .border_l_1()
+                    .border_color(rgb(color::BLUE))
+                    .bg(rgb(color::SURFACE))
             })
             .children(
                 message
@@ -159,8 +131,18 @@ impl Workspace {
                     .iter()
                     .filter(|part| part.kind != "patch")
                     .filter_map(|part| Self::render_part(part, state, cx)),
-            )
-            .into_any_element()
+            );
+        if user {
+            content.into_any_element()
+        } else {
+            content
+                .children(super::message_footer::render(
+                    message,
+                    messages,
+                    last_assistant,
+                ))
+                .into_any_element()
+        }
     }
 
     fn render_part(

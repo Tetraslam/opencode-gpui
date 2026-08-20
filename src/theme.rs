@@ -37,6 +37,8 @@ pub mod size {
     pub const SESSION_PANE: f32 = 286.0;
     pub const SESSION_ROW: f32 = 34.0;
     pub const INSPECTOR: f32 = 420.0;
+    pub const INSPECTOR_MIN: f32 = 320.0;
+    pub const CONVERSATION_MIN: f32 = 320.0;
     pub const STATUSLINE: f32 = 24.0;
     pub const MESSAGE_HEADER: f32 = 26.0;
     pub const ROW_TOOL: f32 = 30.0;
@@ -44,10 +46,9 @@ pub mod size {
     pub const LINE_CODE: f32 = 18.0;
     pub const LINE_DETAIL: f32 = 17.0;
     pub const COMPOSER_PROMPT: f32 = 36.0;
-    pub const ATTACHMENT_WIDTH: f32 = 132.0;
-    pub const ATTACHMENT_HEIGHT: f32 = 96.0;
-    pub const ATTACHMENT_PREVIEW: f32 = 70.0;
-    pub const INSPECTOR_BREAKPOINT: f32 = 1240.0;
+    pub const ATTACHMENT_WIDTH: f32 = 176.0;
+    pub const ATTACHMENT_HEIGHT: f32 = 108.0;
+    pub const ATTACHMENT_PREVIEW: f32 = 80.0;
 }
 
 pub const UI_FONT: &str = "Noto Sans";

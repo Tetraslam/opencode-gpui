@@ -41,7 +41,7 @@ impl PreparedPart {
             output: state
                 .and_then(|state| state.get("output"))
                 .and_then(serde_json::Value::as_str)
-                .map(bounded_output),
+                .map(|output| output.to_owned().into()),
             metadata: state
                 .and_then(|state| state.get("metadata"))
                 .map(|value| pretty_json(value).into()),
@@ -115,7 +115,7 @@ impl Workspace {
         cx.notify();
     }
 
-    pub(super) fn render_inspector(&self) -> gpui::AnyElement {
+    pub(super) fn render_inspector(&self, width: gpui::Pixels) -> gpui::AnyElement {
         let selection = self.active_tab().and_then(|tab| tab.selected_part.as_ref());
         let part = selection.and_then(|selection| self.find_part(selection));
         let prepared = selection.and_then(|selection| {
@@ -125,7 +125,7 @@ impl Workspace {
         let detail = selection.map(|_| render_part_detail(prepared.map(Arc::as_ref), true));
 
         div()
-            .w(self.inspector_width)
+            .w(width)
             .h_full()
             .flex_none()
             .flex()
@@ -279,16 +279,4 @@ fn detail_section(label: &'static str, content: SharedString) -> gpui::AnyElemen
 
 fn pretty_json(value: &serde_json::Value) -> String {
     serde_json::to_string_pretty(value).unwrap_or_else(|_| value.to_string())
-}
-
-fn bounded_output(output: &str) -> SharedString {
-    const LIMIT: usize = 120;
-    let mut lines = output.lines();
-    let visible = lines.by_ref().take(LIMIT).collect::<Vec<_>>().join("\n");
-    let hidden = lines.count();
-    if hidden == 0 {
-        visible.into()
-    } else {
-        format!("{visible}\n\n... {hidden} more lines").into()
-    }
 }

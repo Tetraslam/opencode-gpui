@@ -28,6 +28,38 @@ document is complete.
 
 These are the next implementation tasks requested in the latest manual test pass.
 
+### Current correction pass
+
+- Position composer attachment descriptors without overlap or crowding. Keep distinct backgrounds for
+  the type and filename descriptors, rename clipboard-generated files and labels to `image`, and apply
+  the same descriptor treatment to image attachments in the conversation trace.
+- Restore equal outer composer spacing. Keep the real session-status indicator, but integrate it into
+  the composer's internal grid instead of rendering a separate left-side card.
+- Surface rejected shell submissions and other composer errors in a prominent visible error region;
+  silently refusing a submission is not acceptable.
+- Keep directory-picker title and search controls pinned while result rows scroll. Cycling from the
+  first row to the last must never scroll the search field out of view.
+- Never truncate expanded tool output or inspector output. A collapsed preview may summarize content,
+  but explicit expansion means the user requested the complete result, regardless of line count.
+- Match OpenCode TUI's message hierarchy: user turns are cohesive subtly differentiated blocks;
+  assistant content is the default flat reading flow; assistant agent/mode, model, and elapsed duration
+  appear as restrained metadata after the completed response rather than as a repeated leading banner.
+- Keep the persistent right inspector visible at narrower desktop widths when enough usable content
+  space remains. Use pane minimum widths and available layout space rather than the current coarse
+  fixed breakpoint.
+
+Acceptance:
+
+- Composer and conversation image descriptors are aligned, readable, and never overlap their remove
+  control or preview.
+- Composer outer top, bottom, left, and right gaps are equal, and the status indicator reads as part of
+  the composer rather than a second card.
+- Rejected shell attachments produce a clearly visible error.
+- Holding Up on the first directory result selects the last result while the search field stays pinned.
+- Expanding a 400+ line shell/tool result exposes every line in both timeline detail and inspector.
+- User and assistant turns can be distinguished at a glance without repetitive role headers.
+- The right inspector remains visible at the tested split-window width shown in the manual screenshot.
+
 ### Selectable text everywhere
 
 - Make user and assistant prose selectable with normal pointer dragging.
@@ -248,6 +280,31 @@ user reprioritizes them.
 - Add export, update, sharing, notifications, permissions/questions, formatter state, file tree/search,
   VCS state, snapshots, revert/fork, and PTY support according to server capabilities.
 - Validate desktop and narrow-window layouts without hiding required state or overlapping controls.
+
+### File explorer
+
+- Add a fast native file explorer to the left sidebar alongside the session explorer.
+- Show hidden files and directories by default.
+- Use background, cancellable directory enumeration and incremental updates; never walk the project on
+  GPUI's thread.
+- Support expand/collapse, open, rename, create file/directory, duplicate, delete with confirmation,
+  copy path, copy relative path, reveal externally, and refresh through intuitive context menus.
+- Add keyboard navigation for next/previous row, parent/child traversal, expand/collapse, open, rename,
+  delete, context menu, type-to-filter, and focus transfer between session and file explorers.
+- Preserve expansion, selection, and scroll state per directory tab. Reconcile filesystem changes
+  without rebuilding or flashing the whole tree.
+- Respect ignore data only as an optional filter; hidden and ignored entries remain discoverable by
+  default unless the user changes the setting.
+- Reuse the shared selection/menu infrastructure rather than introducing a file-explorer-only menu
+  system.
+
+Acceptance:
+
+- A large repository opens without blocking interaction, and expanding one directory enumerates only
+  the required subtree.
+- Dotfiles and hidden directories are visible on first use.
+- Keyboard and context-menu operations are complete without requiring the mouse.
+- External file changes update the affected subtree while preserving tree position and expansion.
 
 ## Already shipped and retained
 

@@ -59,7 +59,7 @@ impl Workspace {
             tab.prompt_error = Some("prompt images exceed 20 mb".into());
         } else {
             let number = tab.attached_images.len() + 1;
-            let filename = format!("clipboard-{number}.{}", extension(image.format));
+            let filename = format!("image-{number}.{}", extension(image.format));
             let id = format!("{}-{}", image.id(), super::draft_persistence::next_nonce());
             let image = Arc::new(image);
             tab.attached_images.push(PromptImage {
@@ -107,6 +107,12 @@ impl Workspace {
         self.capture_active_draft(false, cx);
         cx.notify();
     }
+}
+
+pub(super) fn display_image_filename(filename: &str) -> String {
+    filename
+        .strip_prefix("clipboard-")
+        .map_or_else(|| filename.to_owned(), |suffix| format!("image-{suffix}"))
 }
 
 pub(super) fn decode_image(mime: &str, data: &str) -> Option<Arc<Image>> {

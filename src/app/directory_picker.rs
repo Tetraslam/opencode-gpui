@@ -53,8 +53,8 @@ impl Workspace {
                 .left(px(ui_size::ACTIVITY_RAIL))
                 .w(px(430.0))
                 .max_h(px(460.0))
-                .overflow_scroll()
-                .track_scroll(&self.picker_scroll)
+                .flex()
+                .flex_col()
                 .bg(rgb(color::ELEVATED))
                 .border_1()
                 .border_color(rgb(color::BORDER))
@@ -66,20 +66,7 @@ impl Workspace {
                         cx.stop_propagation();
                     }),
                 )
-                .child(
-                    div()
-                        .h(px(30.0))
-                        .px_3()
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .border_b_1()
-                        .border_color(rgb(color::BORDER))
-                        .text_xs()
-                        .text_color(rgb(color::TEXT_DIM))
-                        .child("open directory")
-                        .child("up/down  enter  esc"),
-                )
+                .child(directory_picker_header())
                 .child(
                     div()
                         .p_2()
@@ -99,8 +86,32 @@ impl Workspace {
                                 .child(error.clone())
                         })),
                 )
-                .children(rows)
+                .child(
+                    div()
+                        .id("directory-picker-results")
+                        .min_h_0()
+                        .flex_1()
+                        .overflow_y_scroll()
+                        .track_scroll(&self.picker_scroll)
+                        .children(rows),
+                )
                 .into_any_element()
         })
     }
+}
+
+fn directory_picker_header() -> gpui::AnyElement {
+    div()
+        .h(px(30.0))
+        .px_3()
+        .flex()
+        .items_center()
+        .justify_between()
+        .border_b_1()
+        .border_color(rgb(color::BORDER))
+        .text_xs()
+        .text_color(rgb(color::TEXT_DIM))
+        .child("open directory")
+        .child("up/down  enter  esc")
+        .into_any_element()
 }

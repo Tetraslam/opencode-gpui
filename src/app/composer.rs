@@ -28,16 +28,11 @@ impl Workspace {
             .cloned();
         div()
             .flex_none()
-            .pl(px(ui_size::EDGE_INSET))
-            .py_3()
-            .flex()
-            .gap_2()
+            .p_3()
             .bg(rgb(color::BASE))
-            .child(activity_cell(status.as_ref(), error.is_some()))
             .child(
                 div()
-                    .min_w_0()
-                    .flex_1()
+                    .w_full()
                     .rounded_sm()
                     .border_1()
                     .border_color(rgb(if error.is_some() {
@@ -56,6 +51,7 @@ impl Workspace {
                             .gap_2()
                             .font_family(MONO_FONT)
                             .text_sm()
+                            .child(activity_cell(status.as_ref(), error.is_some()))
                             .child(
                                 div()
                                     .h(px(ui_size::COMPOSER_PROMPT))
@@ -70,6 +66,7 @@ impl Workspace {
                             )
                             .child(div().min_w_0().flex_1().child(editor)),
                     )
+                    .children(error.clone().map(prompt_error))
                     .child(
                         div()
                             .h(px(ui_size::MESSAGE_HEADER))
@@ -82,13 +79,11 @@ impl Workspace {
                             .font_family(MONO_FONT)
                             .text_xs()
                             .text_color(rgb(color::TEXT_DIM))
-                            .child(error.unwrap_or_else(|| {
-                                if mode == super::prompt_mode::PromptMode::Shell {
-                                    "shell mode  |  esc exit".into()
-                                } else {
-                                    self.last_prompt_context()
-                                }
-                            }))
+                            .child(if mode == super::prompt_mode::PromptMode::Shell {
+                                "shell mode  |  esc exit".into()
+                            } else {
+                                self.last_prompt_context()
+                            })
                             .child(if busy {
                                 Self::abort_button(session_id.expect("busy session has an id"), cx)
                             } else {
@@ -204,19 +199,28 @@ fn activity_cell(status: Option<&SessionStatus>, failed: bool) -> gpui::AnyEleme
         }
     };
     div()
-        .w(px(ui_size::TOOL_CONTENT_X
-            - ui_size::EDGE_INSET
-            - ui_size::GAP))
+        .w(px(ui_size::KIND_COL))
+        .h(px(ui_size::COMPOSER_PROMPT))
         .flex_none()
         .flex()
         .items_center()
         .justify_center()
-        .rounded_sm()
-        .border_1()
-        .border_color(rgb(color::BORDER_SUBTLE))
-        .bg(rgb(color::SURFACE))
         .font_family(MONO_FONT)
         .text_color(rgb(label_color))
         .child(marker)
+        .into_any_element()
+}
+
+fn prompt_error(error: SharedString) -> gpui::AnyElement {
+    div()
+        .px_3()
+        .py_2()
+        .border_t_1()
+        .border_color(rgb(color::RED))
+        .bg(rgb(color::DIFF_REMOVED_BG))
+        .font_family(MONO_FONT)
+        .text_xs()
+        .text_color(rgb(color::RED))
+        .child(error)
         .into_any_element()
 }

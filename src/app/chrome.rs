@@ -16,6 +16,28 @@ impl Focusable for Workspace {
 }
 
 impl Workspace {
+    fn restore_render_focus(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) {
+        if std::mem::take(&mut self.focus_editor_on_render)
+            && let Some(editor) = self.active_tab().map(|tab| tab.editor.clone())
+        {
+            window.defer(cx, move |window, cx| {
+                editor.read(cx).focus_handle(cx).focus(window);
+            });
+        }
+        if std::mem::take(&mut self.focus_overlay_on_render) {
+            let editor = match self.overlay {
+                Overlay::Directory => Some(self.directory_editor.clone()),
+                Overlay::Command => Some(self.command_editor.clone()),
+                Overlay::None => None,
+            };
+            if let Some(editor) = editor {
+                window.defer(cx, move |window, cx| {
+                    editor.read(cx).focus_handle(cx).focus(window);
+                });
+            }
+        }
+    }
+
     fn render_activity_rail(&self, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let sessions_open = self.sessions_open;
         let sessions = div()
@@ -136,36 +158,26 @@ impl Workspace {
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         self.restore_pending_detail_anchor(window);
-        if std::mem::take(&mut self.focus_editor_on_render)
-            && let Some(editor) = self.active_tab().map(|tab| tab.editor.clone())
-        {
-            window.defer(cx, move |window, cx| {
-                editor.read(cx).focus_handle(cx).focus(window);
-            });
-        }
-        if std::mem::take(&mut self.focus_overlay_on_render) {
-            let editor = match self.overlay {
-                super::command_palette::Overlay::Directory => Some(self.directory_editor.clone()),
-                super::command_palette::Overlay::Command => Some(self.command_editor.clone()),
-                super::command_palette::Overlay::None => None,
-            };
-            if let Some(editor) = editor {
-                window.defer(cx, move |window, cx| {
-                    editor.read(cx).focus_handle(cx).focus(window);
-                });
-            }
-        }
+        self.restore_render_focus(window, cx);
         let timeline = self.render_timeline(cx);
         let composer = self.render_composer(cx);
         let sidebar = self.sessions_open.then(|| self.render_sidebar(cx));
         let sidebar_resize = self
             .sessions_open
             .then(|| Workspace::render_sidebar_resize_handle(cx));
+        let reserved = px(ui_size::ACTIVITY_RAIL + ui_size::CONVERSATION_MIN + 10.0)
+            + if self.sessions_open {
+                self.session_pane_width
+            } else {
+                px(0.0)
+            };
+        let inspector_room = window.bounds().size.width - reserved;
         let inspector_open = self
             .active_tab()
             .is_some_and(|tab| tab.timeline.session_id().is_some())
-            && window.bounds().size.width >= px(ui_size::INSPECTOR_BREAKPOINT);
-        let inspector = inspector_open.then(|| self.render_inspector());
+            && inspector_room >= px(ui_size::INSPECTOR_MIN);
+        let inspector_width = self.inspector_width.min(inspector_room);
+        let inspector = inspector_open.then(|| self.render_inspector(inspector_width));
         let inspector_resize = inspector_open.then(|| Self::render_inspector_resize_handle(cx));
         let message_count = match self.active_tab().map(|tab| &tab.timeline) {
             Some(TimelineState::Ready { messages, .. }) => messages.len(),

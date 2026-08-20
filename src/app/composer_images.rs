@@ -3,7 +3,10 @@ use gpui::{
 };
 use opencode_gpui::theme::{MONO_FONT, color, size as ui_size};
 
-use super::{Workspace, image_attachment::PromptImage};
+use super::{
+    Workspace,
+    image_attachment::{PromptImage, display_image_filename},
+};
 
 impl Workspace {
     pub(super) fn render_prompt_images(
@@ -80,9 +83,9 @@ impl Workspace {
                             .bg(rgb(color::BASE))
                             .text_color(rgb(if ready { color::TEXT } else { color::YELLOW }))
                             .child(if ready {
-                                image.filename.clone()
+                                SharedString::from(display_image_filename(&image.filename))
                             } else {
-                                "processing...".into()
+                                SharedString::from("processing...")
                             }),
                     )
                     .child(

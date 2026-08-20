@@ -20,10 +20,7 @@ pub(super) struct DiffLine {
 pub(super) fn parse_diff(diff: &str) -> Vec<DiffLine> {
     let mut old = 0;
     let mut new = 0;
-    let total = diff.lines().count();
-    let mut lines = diff
-        .lines()
-        .take(800)
+    diff.lines()
         .map(|line| {
             if line.starts_with("@@") {
                 if let Some((old_start, new_start)) = hunk_starts(line) {
@@ -61,16 +58,7 @@ pub(super) fn parse_diff(diff: &str) -> Vec<DiffLine> {
                 line,
             )
         })
-        .collect::<Vec<_>>();
-    if total > lines.len() {
-        lines.push(make_line(
-            None,
-            None,
-            DiffKind::Hunk,
-            &format!("... {} more lines", total - lines.len()),
-        ));
-    }
-    lines
+        .collect()
 }
 
 fn make_line(old: Option<u64>, new: Option<u64>, kind: DiffKind, text: &str) -> DiffLine {

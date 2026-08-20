@@ -51,9 +51,8 @@ impl Workspace {
         .unwrap_or_default();
         let item = self.overlay_selection
             + match self.overlay {
-                Overlay::Directory => 2,
                 Overlay::Command => 1,
-                Overlay::None => 0,
+                Overlay::Directory | Overlay::None => 0,
             };
         self.picker_scroll.scroll_to_item(item);
         cx.notify();

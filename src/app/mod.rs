@@ -31,6 +31,7 @@ mod markdown_inline_view;
 mod markdown_render_cache;
 mod markdown_tasks;
 mod markdown_view;
+mod message_footer;
 mod navigation;
 mod navigation_keys;
 mod optimistic;
