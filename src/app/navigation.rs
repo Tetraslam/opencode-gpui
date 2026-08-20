@@ -3,7 +3,6 @@ use gpui::{
 };
 use opencode_gpui::{
     editor::TextEditor,
-    event::SessionStatus,
     theme::{MONO_FONT, color, size as ui_size},
 };
 
@@ -22,6 +21,7 @@ actions!(
         NewSession,
         PreviousSession,
         NextSession,
+        CompleteDirectory,
         SelectPreviousOverlayItem,
         SelectNextOverlayItem
     ]
@@ -69,6 +69,15 @@ impl Workspace {
         } else if !query.trim().is_empty() {
             self.create_directory_session(query, cx);
         }
+    }
+
+    pub(super) fn complete_directory(
+        &mut self,
+        _: &CompleteDirectory,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.complete_directory_picker(cx);
     }
 
     pub(super) fn toggle_sessions(
@@ -146,9 +155,9 @@ impl Workspace {
             cx.notify();
             return;
         }
-        self.capture_active_draft(true, cx);
         self.dismiss_transients();
         self.active_tab = index;
+        self.select_default_session(cx);
         self.persist_workspace_layout(cx);
         cx.notify();
     }
@@ -161,12 +170,10 @@ impl Workspace {
 
     pub(super) fn render_titlebar(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
         let active = self.active_tab;
+        let busy_directories = self.busy_directories();
         let tabs = self.tabs.iter().enumerate().map(|(index, tab)| {
             let directory = tab.directory.clone();
-            let busy = self.statuses.iter().any(|(session_id, status)| {
-                matches!(status, SessionStatus::Busy | SessionStatus::Retry { .. })
-                    && self.session_directory(session_id) == Some(directory.as_str())
-            });
+            let busy = busy_directories.contains(directory.as_str());
             div()
                 .id(SharedString::from(format!("directory-tab-{index}")))
                 .h_full()

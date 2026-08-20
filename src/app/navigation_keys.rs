@@ -1,9 +1,9 @@
 use gpui::{App, KeyBinding};
 
 use super::navigation::{
-    CloseDirectory, DismissOverlay, NewSession, NextDirectory, NextSession, PreviousDirectory,
-    PreviousSession, SelectNextOverlayItem, SelectPreviousOverlayItem, ToggleCommandPalette,
-    ToggleDirectoryPicker, ToggleSessions,
+    CloseDirectory, CompleteDirectory, DismissOverlay, NewSession, NextDirectory, NextSession,
+    PreviousDirectory, PreviousSession, SelectNextOverlayItem, SelectPreviousOverlayItem,
+    ToggleCommandPalette, ToggleDirectoryPicker, ToggleSessions,
 };
 
 pub(super) fn init(cx: &mut App) {
@@ -20,5 +20,6 @@ pub(super) fn init(cx: &mut App) {
         KeyBinding::new("alt-down", NextSession, None),
         KeyBinding::new("up", SelectPreviousOverlayItem, None),
         KeyBinding::new("down", SelectNextOverlayItem, None),
+        KeyBinding::new("tab", CompleteDirectory, None),
     ]);
 }

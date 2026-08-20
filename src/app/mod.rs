@@ -55,6 +55,7 @@ mod timeline;
 mod timeline_scroll;
 mod timeline_state;
 mod tool_row;
+mod workspace_activity;
 mod workspace_command;
 mod workspace_layout;
 mod workspace_restore;

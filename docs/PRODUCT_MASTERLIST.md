@@ -51,6 +51,10 @@ These are the next implementation tasks requested in the latest manual test pass
 - Persist the ordered set of open directories and the active workspace across launches. Validate stale
   paths off GPUI's thread, preserve an intentionally empty window, and keep `OPENCODE_DIRECTORY` as an
   explicit startup override.
+- Complete directory-picker paths with Tab using shell-style common-prefix and trailing-slash behavior.
+  Keep directory enumeration off GPUI's thread.
+- Keep Ctrl+Tab and Ctrl+Shift+Tab workspace cycling comfortably inside the direct-interaction budget,
+  including sustained key repeat with many sessions, drafts, and active statuses.
 
 Acceptance:
 
@@ -66,6 +70,10 @@ Acceptance:
 - ~~The right inspector remains visible at the tested split-window width shown in the manual screenshot.~~
 - Restarting restores every open directory in order and selects the workspace that was active before
   shutdown; closing every workspace and restarting returns to the directory picker.
+- Tab extends ambiguous directory paths to their common prefix and completes a unique directory with a
+  trailing slash so repeated Tab presses can descend through the tree.
+- Holding Ctrl+Tab or Ctrl+Shift+Tab cycles workspaces immediately without dropped input or visible lag;
+  the measured switch path remains below 1 ms at p99.
 
 ### Selectable text everywhere
 

@@ -41,6 +41,74 @@ impl Workspace {
             .take(60)
             .collect()
     }
+
+    pub(super) fn complete_directory_picker(&mut self, cx: &mut Context<Self>) {
+        if self.overlay != super::command_palette::Overlay::Directory {
+            return;
+        }
+        let query = self.directory_editor.read(cx).text().to_owned();
+        if query == self.directory_suggestion_query
+            && let Some(completion) = path_completion(&query, &self.directory_suggestions)
+        {
+            self.apply_directory_completion(&completion, cx);
+            return;
+        }
+        let roots = completion_roots(self.active_directory());
+        let search = query.clone();
+        let completion = cx.background_spawn(async move { complete_directories(&search, &roots) });
+        self.directory_completion = Some(cx.spawn(async move |workspace, cx| {
+            let suggestions = completion.await;
+            let _ = workspace.update(cx, |workspace, cx| {
+                if workspace.overlay != super::command_palette::Overlay::Directory
+                    || workspace.directory_editor.read(cx).text() != query
+                {
+                    return;
+                }
+                let suggestions = workspace.merge_directory_candidates(&query, suggestions);
+                if let Some(completion) = path_completion(&query, &suggestions) {
+                    workspace.apply_directory_completion(&completion, cx);
+                }
+            });
+        }));
+    }
+
+    fn apply_directory_completion(&mut self, completion: &str, cx: &mut Context<Self>) {
+        let length = self.directory_editor.read(cx).text().len();
+        self.directory_editor.update(cx, |editor, cx| {
+            editor.replace_range(0..length, completion, cx);
+        });
+    }
+}
+
+fn path_completion(query: &str, candidates: &[String]) -> Option<String> {
+    let query = query.trim();
+    let explicit = query.starts_with(['/', '~', '.']) || query.contains('/');
+    let mut matching = candidates.iter().filter_map(|candidate| {
+        let value = if explicit {
+            candidate.as_str()
+        } else {
+            Path::new(candidate).file_name()?.to_str()?
+        };
+        value.starts_with(query).then_some(value)
+    });
+    let first = matching.next()?;
+    let Some(second) = matching.next() else {
+        return Some(format!("{}/", first.trim_end_matches('/')));
+    };
+    let mut prefix = common_prefix(first, second);
+    for candidate in matching {
+        prefix = common_prefix(&prefix, candidate);
+    }
+    (prefix.len() > query.len()).then_some(prefix)
+}
+
+fn common_prefix(left: &str, right: &str) -> String {
+    for ((index, left_char), right_char) in left.char_indices().zip(right.chars()) {
+        if left_char != right_char {
+            return left[..index].to_owned();
+        }
+    }
+    left[..left.len().min(right.len())].to_owned()
 }
 
 fn completion_roots(active: Option<&str>) -> Vec<PathBuf> {
@@ -190,5 +258,26 @@ mod tests {
 
         assert_eq!(matches, [root.join("mal-sync").to_string_lossy()]);
         fs::remove_dir_all(root).expect("remove fixture");
+    }
+
+    #[test]
+    fn tab_completion_extends_common_prefix_then_finishes_unique_directory() {
+        assert_eq!(
+            path_completion("/work/al", &["/work/alpha".into(), "/work/alpine".into()]),
+            Some("/work/alp".into())
+        );
+        assert_eq!(
+            path_completion("/work/alph", &["/work/alpha".into()]),
+            Some("/work/alpha/".into())
+        );
+    }
+
+    #[test]
+    fn bare_tab_completion_preserves_shell_style_input() {
+        assert_eq!(
+            path_completion("al", &["/work/alpha".into(), "/tmp/alpine".into()]),
+            Some("alp".into())
+        );
+        assert_eq!(path_completion("alp", &[]), None);
     }
 }

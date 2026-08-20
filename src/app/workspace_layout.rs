@@ -29,7 +29,11 @@ impl Workspace {
             active_directory: self.active_directory().map(str::to_owned),
         };
         let path = self.layout_path.clone();
+        let timer = cx
+            .background_executor()
+            .timer(std::time::Duration::from_millis(120));
         self.layout_save = Some(cx.background_spawn(async move {
+            timer.await;
             if let Err(error) = write_to(&path, &layout) {
                 eprintln!("workspace layout persistence failed: {error}");
             }

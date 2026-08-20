@@ -75,3 +75,31 @@ fn sustained_menu_navigation_stays_sub_millisecond(cx: &mut TestAppContext) {
         );
     });
 }
+
+#[gpui::test]
+fn sustained_workspace_switching_stays_sub_millisecond(cx: &mut TestAppContext) {
+    let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
+    workspace.update(cx, |workspace, cx| {
+        workspace.tabs[0].directory = "/work/a".into();
+        workspace.open_directory("/work/b".into(), cx);
+        for (index, tab) in workspace.tabs.iter_mut().enumerate() {
+            tab.timeline = TimelineState::Loading {
+                session_id: format!("session-{index}"),
+                title: "performance".into(),
+            };
+        }
+        let mut samples = Vec::with_capacity(10_000);
+        for iteration in 0..10_000 {
+            let started = Instant::now();
+            workspace.switch_directory(iteration % 2, cx);
+            samples.push(started.elapsed());
+        }
+        samples.sort_unstable();
+        let p99 = samples[samples.len() * 99 / 100];
+        eprintln!("workspace switching p99: {p99:?}");
+        assert!(
+            p99 < Duration::from_millis(1),
+            "workspace switching p99 {p99:?} exceeded 1 ms"
+        );
+    });
+}

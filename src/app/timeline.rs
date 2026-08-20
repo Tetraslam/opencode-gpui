@@ -66,6 +66,9 @@ impl Workspace {
                         })
                 });
                 let event_handle = scroll_handle.clone();
+                let last_assistant = messages
+                    .iter()
+                    .rposition(|message| message.info.role() == "assistant");
                 let render_state = RenderState {
                     expanded_parts: &tab.expanded_parts,
                     collapsed_parts: &tab.collapsed_parts,
@@ -89,10 +92,13 @@ impl Workspace {
                     }))
                     .children(older)
                     .children(messages.iter().enumerate().map(|(index, message)| {
-                        let last_assistant = !messages[index + 1..]
-                            .iter()
-                            .any(|candidate| candidate.info.role() == "assistant");
-                        Self::render_message(message, messages, last_assistant, &render_state, cx)
+                        Self::render_message(
+                            message,
+                            messages,
+                            last_assistant == Some(index),
+                            &render_state,
+                            cx,
+                        )
                     }));
                 div()
                     .size_full()

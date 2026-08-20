@@ -112,6 +112,6 @@ fn directory_picker_header() -> gpui::AnyElement {
         .text_xs()
         .text_color(rgb(color::TEXT_DIM))
         .child("open directory")
-        .child("up/down  enter  esc")
+        .child("up/down  tab  enter  esc")
         .into_any_element()
 }

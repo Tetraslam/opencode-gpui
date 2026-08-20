@@ -201,6 +201,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Workspace::toggle_sessions))
             .on_action(cx.listener(Workspace::next_directory))
             .on_action(cx.listener(Workspace::previous_directory))
+            .on_action(cx.listener(Workspace::complete_directory))
             .on_action(cx.listener(Workspace::close_directory_action))
             .on_action(cx.listener(Workspace::new_session_action))
             .on_action(cx.listener(Workspace::previous_session))
