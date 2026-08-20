@@ -212,11 +212,9 @@ impl Workspace {
                         sessions.push(session.clone());
                     }
                     workspace.merge_directory_sessions(&directory, sessions);
-                    if workspace.active_directory() == Some(directory.as_str())
-                        && let Some(session) = selected
-                    {
+                    if let Some(session) = selected {
                         let title = super::format::display_title(&session).into();
-                        workspace.select_session(session.id, title, cx);
+                        workspace.select_session_in(&directory, session.id, title, cx);
                     }
                     cx.notify();
                 }

@@ -26,6 +26,8 @@ mod draft_tests;
 mod overlay_tests;
 #[path = "performance_tests.rs"]
 mod performance_tests;
+#[path = "session_selection_tests.rs"]
+mod session_selection_tests;
 #[path = "shell_tests.rs"]
 mod shell_tests;
 #[path = "stream_tests.rs"]

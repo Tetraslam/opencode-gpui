@@ -157,7 +157,6 @@ impl Workspace {
         }
         self.dismiss_transients();
         self.active_tab = index;
-        self.select_default_session(cx);
         self.persist_workspace_layout(cx);
         cx.notify();
     }

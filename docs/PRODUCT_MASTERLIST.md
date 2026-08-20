@@ -55,6 +55,8 @@ These are the next implementation tasks requested in the latest manual test pass
   Keep directory enumeration off GPUI's thread.
 - Keep Ctrl+Tab and Ctrl+Shift+Tab workspace cycling comfortably inside the direct-interaction budget,
   including sustained key repeat with many sessions, drafts, and active statuses.
+- Preload every restored workspace's selected timeline and derived Markdown, image, diff, and sidebar
+  state in the background. Cycling tabs must never trigger a lazy session or timeline load.
 
 Acceptance:
 
@@ -74,6 +76,8 @@ Acceptance:
   trailing slash so repeated Tab presses can descend through the tree.
 - Holding Ctrl+Tab or Ctrl+Shift+Tab cycles workspaces immediately without dropped input or visible lag;
   the measured switch path remains below 1 ms at p99.
+- After startup hydration completes, every restored tab opens from memory while autocycling; no tab
+  displays a new loading state or starts network work because it became active.
 
 ### Selectable text everywhere
 

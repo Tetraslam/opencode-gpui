@@ -45,6 +45,7 @@ mod reducer;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
+mod session_selection;
 mod settings;
 mod shell_submit;
 mod sidebar_state;
@@ -69,7 +70,7 @@ use std::{
 };
 
 use gpui::{
-    App, AppContext, Application, Bounds, Context, Entity, FocusHandle, Focusable, SharedString,
+    App, AppContext, Application, Bounds, Entity, FocusHandle, Focusable, SharedString,
     Subscription, Task, TitlebarOptions, WindowBounds, WindowOptions, px, size,
 };
 use opencode_gpui::{
@@ -160,115 +161,6 @@ pub struct Workspace {
     pub(super) _command_change: Subscription,
     pub(super) connected_directories: HashSet<String>,
     pub(super) _load: Task<()>,
-}
-
-impl Workspace {
-    pub(super) fn select_session(
-        &mut self,
-        session_id: String,
-        title: SharedString,
-        cx: &mut Context<Self>,
-    ) {
-        self.capture_active_draft(true, cx);
-        self.dismiss_transients();
-        let Some(directory) = self.active_directory().map(str::to_owned) else {
-            return;
-        };
-        if self
-            .active_tab()
-            .is_some_and(|tab| tab.timeline.session_id() == Some(session_id.as_str()))
-        {
-            return;
-        }
-        let tab = self.active_tab_mut().expect("active directory has a tab");
-        tab.selected_part = None;
-        tab.expanded_parts.clear();
-        tab.collapsed_parts.clear();
-        tab.detail_cache.clear();
-        tab.preparing_parts.clear();
-        tab.detail_tasks.clear();
-        tab.markdown = markdown_cache::MarkdownCache::default();
-        tab.markdown_renders = markdown_render_cache::MarkdownRenderCache::default();
-        tab.images = image_cache::ImageCache::default();
-        tab.message_limit = MESSAGE_PAGE;
-        tab.history_loading = false;
-        tab.history_exhausted = false;
-        tab.follow_tail = true;
-        tab.timeline_scroll.scroll_to_bottom();
-        tab.timeline = TimelineState::Loading {
-            session_id: session_id.clone(),
-            title: title.clone(),
-        };
-        let client = tab.client.clone();
-        let task_directory = directory.clone();
-        self.restore_draft(&directory, &session_id, cx);
-        self.load_sidebar(&directory, &session_id, cx);
-
-        let requested_id = session_id;
-        let task = cx.spawn(async move |workspace, cx| {
-            let result = client
-                .messages(&requested_id, MESSAGE_PAGE)
-                .await
-                .map_err(|error| error.to_string());
-            let _ = workspace.update(cx, |workspace, cx| {
-                let Some(tab) = workspace
-                    .tabs
-                    .iter_mut()
-                    .find(|tab| tab.directory == task_directory)
-                else {
-                    return;
-                };
-                if tab.timeline.session_id() != Some(requested_id.as_str()) {
-                    return;
-                }
-                tab.timeline = match result {
-                    Ok(messages) => {
-                        tab.history_exhausted = messages.len() < MESSAGE_PAGE;
-                        TimelineState::Ready {
-                            session_id: requested_id,
-                            title,
-                            messages,
-                        }
-                    }
-                    Err(error) => TimelineState::Failed {
-                        session_id: requested_id,
-                        title,
-                        error: error.into(),
-                    },
-                };
-                workspace.refresh_markdown(&task_directory, cx);
-                workspace.refresh_image_cache(&task_directory, cx);
-                workspace.prepare_default_diffs(&task_directory, cx);
-                cx.notify();
-            });
-        });
-        if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) {
-            tab.timeline_load = Some(task);
-        }
-        cx.notify();
-    }
-
-    fn select_default_session(&mut self, cx: &mut Context<Self>) {
-        let Some(directory) = self.active_directory().map(str::to_owned) else {
-            return;
-        };
-        if self
-            .active_tab()
-            .is_some_and(|tab| !matches!(tab.timeline, TimelineState::Empty))
-        {
-            return;
-        }
-        let default = match &self.server_state {
-            ServerState::Ready { sessions, .. } => sessions
-                .iter()
-                .find(|session| session.parent_id.is_none() && session.directory == directory)
-                .map(|session| (session.id.clone(), format::display_title(session).into())),
-            ServerState::Loading | ServerState::Failed(_) => None,
-        };
-        if let Some((session_id, title)) = default {
-            self.select_session(session_id, title, cx);
-        }
-    }
 }
 
 pub fn run() {
