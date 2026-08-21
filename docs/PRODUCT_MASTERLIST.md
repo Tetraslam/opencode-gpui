@@ -66,6 +66,9 @@ These are the next implementation tasks requested in the latest manual test pass
   result titles supplement identity rather than replacing it.
 - When tail following is disabled, expanding or collapsing trace detail preserves the current scroll
   offset and grows downward instead of preserving the viewport's lower edge.
+- On the implicit default connection, probe for an existing local OpenCode server and start
+  `opencode serve` off GPUI's thread when absent. Retry readiness/bootstrap with bounded backoff, never
+  replace an explicit `OPENCODE_SERVER_URL`, and stop only a server process owned by this app.
 
 Acceptance:
 
@@ -95,6 +98,9 @@ Acceptance:
   expanded tool section.
 - Expanding and collapsing a visible trace part while scrolled above the tail does not move the content
   above it or leave the viewport displaced afterward.
+- Launching with no server on `127.0.0.1:4096` starts one and reaches a ready session list without user
+  intervention; existing, concurrent, explicit remote, disabled-autostart, occupied-port, missing-binary,
+  startup-timeout, and app-shutdown cases produce deterministic ownership or actionable failure states.
 
 ### Selectable text everywhere
 

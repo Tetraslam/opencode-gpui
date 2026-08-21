@@ -1,12 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
     sync::Arc,
 };
 
 use gpui::{AppContext, Context};
 use opencode_gpui::{
-    api::{Bootstrap, Client},
+    api::Bootstrap,
     editor::{Changed, Submit, TextEditor},
 };
 
@@ -42,24 +41,19 @@ impl Workspace {
             cx.notify();
         });
         let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
-        let server =
-            env::var("OPENCODE_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:4096".into());
-        let client_result = Client::new(
-            &server,
-            None,
-            env::var("OPENCODE_SERVER_USERNAME").ok(),
-            env::var("OPENCODE_SERVER_PASSWORD").ok(),
-        );
+        let connection = super::server_startup::prepare(cx);
+        let server = connection.url;
+        let client_result = connection.client;
         let client = client_result.as_ref().ok().cloned();
         let load_client = client.clone();
         let setup_error = client_result.err().map(|error| error.to_string());
+        let server_start = connection.server_start;
         let load = cx.spawn(async move |workspace, cx| {
-            let result = match load_client {
-                Some(client) => client.bootstrap().await.map_err(|error| error.to_string()),
-                None => Err(setup_error.unwrap_or_else(|| "client setup failed".into())),
-            };
+            let result =
+                super::server_startup::connect(load_client, setup_error, server_start).await;
             let _ = workspace.update(cx, |workspace, cx| {
-                workspace.apply_bootstrap(result, cx);
+                workspace.server_process = result.server;
+                workspace.apply_bootstrap(result.bootstrap, cx);
                 workspace.ensure_initial_tab(cx);
                 cx.notify();
             });
@@ -69,6 +63,7 @@ impl Workspace {
             client,
             server: server.into(),
             server_state: ServerState::Loading,
+            server_process: None,
             statuses: Arc::new(HashMap::new()),
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
@@ -77,7 +72,7 @@ impl Workspace {
             _tab_bar_subscription: tab_bar_subscription,
             active_tab: 0,
             directory_switch: None,
-            initial_directory: env::var("OPENCODE_DIRECTORY").ok(),
+            initial_directory: std::env::var("OPENCODE_DIRECTORY").ok(),
             pending_workspace_layout: super::workspace_layout::load(),
             layout_path: super::workspace_layout::path(),
             layout_save: None,

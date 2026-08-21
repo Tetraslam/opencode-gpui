@@ -26,6 +26,7 @@ mod image_attachment;
 mod image_cache;
 mod image_row;
 mod inspector;
+mod local_server;
 mod markdown_cache;
 mod markdown_code_view;
 mod markdown_inline_view;
@@ -44,6 +45,7 @@ mod part_merge;
 mod prompt_mode;
 mod reducer;
 mod selection_overlay;
+mod server_startup;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
@@ -127,6 +129,7 @@ pub struct Workspace {
     pub(super) client: Option<Client>,
     pub(super) server: SharedString,
     pub(super) server_state: ServerState,
+    server_process: Option<local_server::ManagedServer>,
     pub(super) statuses: Arc<HashMap<String, SessionStatus>>,
     pub(super) pending_parts: HashMap<String, Vec<opencode_gpui::model::Part>>,
     pub(super) pending_deltas: HashMap<String, Vec<PendingDelta>>,

@@ -90,6 +90,7 @@ fn workspace(
             server_state: ServerState::Ready {
                 sessions: Arc::new(sessions),
             },
+            server_process: None,
             statuses: Arc::new(HashMap::new()),
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
