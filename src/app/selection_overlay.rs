@@ -8,9 +8,8 @@ use opencode_gpui::{
 };
 
 use super::{
-    Workspace,
-    command_palette::Overlay,
-    composer_catalog::{CatalogState, ComposerCatalog},
+    Workspace, command_palette::Overlay, composer_catalog::CatalogState,
+    selection_filter::filter_items,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -37,6 +36,7 @@ pub(crate) enum SelectionItem {
 impl SelectionItem {
     fn title(&self) -> SharedString {
         match self {
+            Self::Variant(name) if name.is_empty() => "default".into(),
             Self::Agent { name, .. } | Self::Model { name, .. } | Self::Variant(name) => {
                 name.clone().into()
             }
@@ -55,6 +55,8 @@ impl SelectionItem {
                 reference.provider_id, reference.model_id
             )
             .into(),
+            Self::Variant(name) if name.is_empty() => "let OpenCode choose the variant".into(),
+            Self::Variant(name) if name == "none" => "reasoning disabled".into(),
             Self::Variant(_) => "selected model variant".into(),
         }
     }
@@ -129,7 +131,9 @@ impl Workspace {
                 tab.selection.model = Some(reference);
                 tab.selection.variant = None;
             }
-            SelectionItem::Variant(variant) => tab.selection.variant = Some(variant),
+            SelectionItem::Variant(variant) => {
+                tab.selection.variant = (!variant.is_empty()).then_some(variant);
+            }
         }
         tab.selection.explicit = true;
         self.overlay = Overlay::None;
@@ -160,8 +164,8 @@ impl Workspace {
                         .id("selection-overlay")
                         .w(px(560.0))
                         .max_h(px(500.0))
-                        .overflow_scroll()
-                        .track_scroll(&self.picker_scroll)
+                        .flex()
+                        .flex_col()
                         .bg(rgb(color::ELEVATED))
                         .border_1()
                         .border_color(rgb(color::BORDER))
@@ -178,16 +182,26 @@ impl Workspace {
                                 .border_color(rgb(color::BORDER))
                                 .child(self.command_editor.clone()),
                         )
-                        .children(status.map(|status| {
+                        .child(
                             div()
-                                .p_3()
-                                .text_xs()
-                                .text_color(rgb(color::TEXT_DIM))
-                                .child(status)
-                        }))
-                        .children(self.selection_suggestions.iter().enumerate().map(
-                            |(index, item)| selection_row(item, index, self.overlay_selection, cx),
-                        )),
+                                .id("selection-results")
+                                .min_h_0()
+                                .flex_1()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.picker_scroll)
+                                .children(status.map(|status| {
+                                    div()
+                                        .p_3()
+                                        .text_xs()
+                                        .text_color(rgb(color::TEXT_DIM))
+                                        .child(status)
+                                }))
+                                .children(self.selection_suggestions.iter().enumerate().map(
+                                    |(index, item)| {
+                                        selection_row(item, index, self.overlay_selection, cx)
+                                    },
+                                )),
+                        ),
                 )
                 .into_any_element(),
         )
@@ -209,61 +223,6 @@ impl Workspace {
             CatalogState::Ready(_) => None,
         }
     }
-}
-
-fn filter_items(
-    catalog: &ComposerCatalog,
-    kind: SelectionKind,
-    query: &str,
-    model: Option<&ModelRef>,
-) -> Vec<SelectionItem> {
-    match kind {
-        SelectionKind::Agent => catalog
-            .agents
-            .iter()
-            .filter(|agent| matches_query(&[&agent.name, &agent.description], query))
-            .map(|agent| SelectionItem::Agent {
-                name: agent.name.clone(),
-                description: agent.description.clone(),
-            })
-            .take(100)
-            .collect(),
-        SelectionKind::Model => catalog
-            .models
-            .iter()
-            .filter(|item| {
-                matches_query(
-                    &[
-                        &item.name,
-                        &item.provider_name,
-                        &item.reference.provider_id,
-                        &item.reference.model_id,
-                    ],
-                    query,
-                )
-            })
-            .map(|item| SelectionItem::Model {
-                reference: item.reference.clone(),
-                name: item.name.clone(),
-                provider: item.provider_name.clone(),
-            })
-            .take(100)
-            .collect(),
-        SelectionKind::Variant => catalog
-            .variants(model)
-            .iter()
-            .filter(|variant| variant.to_lowercase().contains(query))
-            .cloned()
-            .map(SelectionItem::Variant)
-            .collect(),
-    }
-}
-
-fn matches_query(values: &[&str], query: &str) -> bool {
-    query.is_empty()
-        || values
-            .iter()
-            .any(|value| value.to_lowercase().contains(query))
 }
 
 fn selection_row(

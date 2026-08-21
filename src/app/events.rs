@@ -66,6 +66,7 @@ impl Workspace {
                         ),
                         _ => false,
                     });
+                    let idle_sessions = idle_sessions(&batch);
                     let bootstrap = if rehydrate {
                         client.bootstrap().await.ok()
                     } else {
@@ -82,6 +83,9 @@ impl Workspace {
                             workspace.prepare_default_diffs(&directory, cx);
                             if refresh_sidebar {
                                 workspace.refresh_sidebar_for_directory(&directory, cx);
+                            }
+                            for session_id in idle_sessions {
+                                workspace.reconcile_idle_timeline(&directory, &session_id, cx);
                             }
                             cx.notify();
                         })
@@ -112,4 +116,14 @@ impl Workspace {
         self.connected_directories.remove(directory);
         cx.notify();
     }
+}
+
+fn idle_sessions(events: &[Event]) -> Vec<String> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            Event::SessionIdle { session_id } => Some(session_id.clone()),
+            _ => None,
+        })
+        .collect()
 }

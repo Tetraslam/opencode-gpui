@@ -40,6 +40,46 @@ fn selection_initializes_from_real_catalog_and_tracks_variant() {
     assert_eq!(variant.as_deref(), Some("high"));
 }
 
+#[test]
+fn variant_picker_distinguishes_server_default_from_reasoning_off() {
+    let mut response = catalog_response();
+    response.providers.all[0]
+        .models
+        .get_mut("active")
+        .unwrap()
+        .variants = BTreeMap::from([
+        ("none".into(), serde_json::json!({})),
+        ("high".into(), serde_json::json!({})),
+    ]);
+    let catalog = ComposerCatalog::from_response(response);
+    let model = catalog.models[0].reference.clone();
+    let items = crate::app::selection_filter::filter_items(
+        &catalog,
+        SelectionKind::Variant,
+        "",
+        Some(&model),
+    );
+    assert!(matches!(items.first(), Some(SelectionItem::Variant(value)) if value.is_empty()));
+    assert!(
+        items
+            .iter()
+            .any(|item| matches!(item, SelectionItem::Variant(value) if value == "none"))
+    );
+}
+
+#[gpui::test]
+fn selecting_default_variant_omits_it_from_prompts(cx: &mut TestAppContext) {
+    let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
+    workspace.update(cx, |workspace, cx| {
+        workspace.tabs[0].selection.variant = Some("none".into());
+        workspace.overlay = Overlay::Selection(SelectionKind::Variant);
+        workspace.selection_suggestions = Arc::new(vec![SelectionItem::Variant(String::new())]);
+        workspace.accept_selection(0, cx);
+        assert_eq!(workspace.tabs[0].selection.variant, None);
+        assert!(workspace.tabs[0].selection.explicit);
+    });
+}
+
 #[gpui::test]
 fn keyboard_selection_changes_model_and_clears_stale_variant(cx: &mut TestAppContext) {
     let workspace = workspace(cx, Vec::new(), TimelineState::Empty);

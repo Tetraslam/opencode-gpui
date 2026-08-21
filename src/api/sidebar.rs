@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::{Client, ClientInner, Error};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SidebarSnapshot {
     pub mcp: HashMap<String, McpStatus>,
     pub lsp: Vec<LspStatus>,
@@ -13,7 +13,7 @@ pub struct SidebarSnapshot {
     pub context_limits: HashMap<String, u64>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum McpStatus {
     Connected,
@@ -23,7 +23,7 @@ pub enum McpStatus {
     NeedsClientRegistration { error: String },
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct LspStatus {
     pub id: String,
     pub name: String,
@@ -31,7 +31,7 @@ pub struct LspStatus {
     pub status: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Todo {
     #[serde(default)]
     pub id: String,
@@ -40,7 +40,7 @@ pub struct Todo {
     pub priority: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct FileDiff {
     #[serde(alias = "path")]
     pub file: String,

@@ -50,6 +50,23 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         if self.overlay == Overlay::None {
+            let busy_session = self.active_tab().and_then(|tab| {
+                let session_id = tab.timeline.session_id()?;
+                self.statuses
+                    .get(session_id)
+                    .is_some_and(|status| {
+                        matches!(
+                            status,
+                            opencode_gpui::event::SessionStatus::Busy
+                                | opencode_gpui::event::SessionStatus::Retry { .. }
+                        )
+                    })
+                    .then(|| session_id.to_owned())
+            });
+            if let Some(session_id) = busy_session {
+                self.abort_session(session_id, cx);
+                return;
+            }
             if let Some(tab) = self.active_tab_mut()
                 && tab.composer_completion.take().is_some()
             {
@@ -105,8 +122,8 @@ impl Workspace {
                         .id("command-palette-list")
                         .w(px(520.0))
                         .max_h(px(460.0))
-                        .overflow_scroll()
-                        .track_scroll(&self.picker_scroll)
+                        .flex()
+                        .flex_col()
                         .bg(rgb(color::ELEVATED))
                         .border_1()
                         .border_color(rgb(color::BORDER))
@@ -126,14 +143,18 @@ impl Workspace {
                                 .border_color(rgb(color::BORDER))
                                 .child(self.command_editor.clone()),
                         )
-                        .children(
-                            commands
-                                .iter()
-                                .copied()
-                                .enumerate()
-                                .map(|(index, command)| {
-                                    command_row(command, index == self.overlay_selection, cx)
-                                }),
+                        .child(
+                            div()
+                                .id("command-palette-results")
+                                .min_h_0()
+                                .flex_1()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.picker_scroll)
+                                .children(commands.iter().copied().enumerate().map(
+                                    |(index, command)| {
+                                        command_row(command, index == self.overlay_selection, cx)
+                                    },
+                                )),
                         ),
                 )
                 .into_any_element()

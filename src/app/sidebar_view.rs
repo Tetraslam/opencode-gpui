@@ -42,6 +42,13 @@ impl Workspace {
                     .child(title),
             )
             .child(sidebar_body)
+            .children(tab.sidebar_error.clone().map(|error| {
+                div()
+                    .mt_2()
+                    .text_xs()
+                    .text_color(rgb(color::YELLOW))
+                    .child(error)
+            }))
             .child(
                 div()
                     .mt_4()

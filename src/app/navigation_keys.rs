@@ -10,6 +10,7 @@ pub(super) fn init(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("secondary-t", ToggleDirectoryPicker, None),
         KeyBinding::new("secondary-k", ToggleCommandPalette, None),
+        KeyBinding::new("ctrl-p", ToggleCommandPalette, None),
         KeyBinding::new("escape", DismissOverlay, None),
         KeyBinding::new("secondary-b", ToggleSessions, None),
         KeyBinding::new("ctrl-tab", NextDirectory, None),

@@ -28,6 +28,38 @@ document is complete.
 
 These are the next implementation tasks requested in the latest manual test pass.
 
+### Session execution integrity
+
+This is the highest-priority correction. Diagnose it against OpenCode's server, SDK, and TUI rather than
+attributing premature completion to the model.
+
+- Preserve OpenCode's complete per-turn execution lifecycle: prompt submission, assistant reasoning,
+  tool calls and results, continuation after tools, retry, permission/question handling, abort, compaction,
+  terminal completion, and authoritative idle/error status.
+- Do not infer that a task is complete from an assistant text part, a transient idle-looking frame, an HTTP
+  prompt response, or the absence of a currently rendered tool call. The server's session status and event
+  stream determine whether execution has actually terminated.
+- Audit prompt request fields, agent/model/variant identity, message and part reconciliation, SSE ordering,
+  reconnect/catch-up behavior, session scoping, abort signals, and any client-side task cancellation against
+  OpenCode's implementation.
+- Preserve every tool result and continuation event even when parts arrive out of order, the active tab
+  changes, the inspector refreshes, or a newer event supersedes a prepared render.
+- Surface permission requests, questions, retries, compaction, and server errors instead of allowing an
+  apparently successful but incomplete stop.
+- Treat the observed regression as an acceptance fixture: after discovering that AWS SSM is the documented
+  access path, an assistant that says it will use SSM must remain able to issue the next tool call; the desktop
+  client must not cancel, detach, truncate, or prematurely mark that turn complete.
+
+Acceptance:
+
+- A multi-step task can alternate reasoning and tools until the server reports its real terminal state.
+- The final assistant statement in the reported SSM case cannot be followed by a client-caused silent stop;
+  any server-side stop reason, limit, permission, question, error, or abort is visibly identifiable.
+- Switching tabs, refreshing context, or receiving out-of-order SSE events cannot terminate or detach the
+  active session run.
+- Desktop and OpenCode TUI runs with the same directory, session, agent, model, variant, and prompt send
+  equivalent request semantics and expose the same continuation opportunities.
+
 ### Current correction pass
 
 - ~~Position composer attachment descriptors without overlap or crowding. Keep distinct backgrounds for
@@ -69,6 +101,9 @@ These are the next implementation tasks requested in the latest manual test pass
 - On the implicit default connection, probe for an existing local OpenCode server and start
   `opencode serve` off GPUI's thread when absent. Retry readiness/bootstrap with bounded backoff, never
   replace an explicit `OPENCODE_SERVER_URL`, and stop only a server process owned by this app.
+- Pressing Escape while the active session is working sends OpenCode's real abort action immediately and
+  visibly transitions through the authoritative server state. Escape must not merely hide an overlay or
+  locally pretend the run stopped; overlay dismissal takes precedence only when an overlay is actually open.
 
 Acceptance:
 
@@ -101,6 +136,8 @@ Acceptance:
 - Launching with no server on `127.0.0.1:4096` starts one and reaches a ready session list without user
   intervention; existing, concurrent, explicit remote, disabled-autostart, occupied-port, missing-binary,
   startup-timeout, and app-shutdown cases produce deterministic ownership or actionable failure states.
+- Pressing Escape during generation or tool execution aborts the server run; pressing it with an open overlay
+  dismisses that overlay without accidentally aborting the session underneath.
 
 ### Selectable text everywhere
 
@@ -155,6 +192,11 @@ tranche rather than a sequence of placeholder menus.
   provider/model, variant, command, skill, MCP command, file/reference, and attachment flows.
 - Match upstream menu availability, labels, grouping, aliases, disabled/error states, keyboard
   navigation, selection preservation, and submission semantics instead of hard-coding a partial list.
+- Keep every overlay's title and search field pinned while arrow-key navigation scrolls the results, including
+  the existing model picker.
+- Model-variant selection must distinguish `default` (omit the variant and let OpenCode resolve it) from a
+  provider's literal `none` variant (reasoning disabled). Label both semantics explicitly; never present `none`
+  as though it means server default or silently send it when the user chose default.
 - Cover normal prompts, shell mode, server slash commands, local commands, file mentions, image
   attachments, multiline editing, history/drafts, abort, model/agent switching, and capability changes
   that arrive while the app is running.
@@ -170,6 +212,10 @@ Acceptance:
 - Composer and conversation right edges line up at every supported pane width.
 - Every composer menu and mode exposed by the connected OpenCode version is reachable, keyboard
   navigable, correctly submitted, and visually integrated rather than represented by a placeholder.
+- Holding Up or Down in the model picker and every other searchable overlay never scrolls its search field
+  or title out of view.
+- Choosing `default` sends no variant, while choosing `none (reasoning off)` deliberately sends `none`; the
+  active composer identity makes the difference visible before submission.
 
 ### Mermaid viewport quality
 
@@ -210,6 +256,9 @@ Acceptance:
 - Ignore snapshots for stale session/directory requests.
 - Only notify GPUI when visible data actually changed.
 - Show an unobtrusive stale/error state when refresh fails without blanking good data.
+- Eliminate flashes caused by ordinary prompting, streaming parts, tool transitions, tab/session changes,
+  inspector selection changes, and context refreshes. Existing sidebar pixels remain stable until replacement
+  content is ready, and unrelated events do not reset the whole inspector tree.
 
 Acceptance:
 
@@ -217,6 +266,7 @@ Acceptance:
 - Refresh preserves selected detail, expansion, section geometry, and last-good content on failure.
 - Rapid events coalesce into bounded refresh work.
 - Switching sessions during a refresh cannot paint the old session's context.
+- Reproducing ordinary multi-tool work and inspector navigation causes no blank, loading, or geometry flash.
 
 ### Key-repeat performance
 
@@ -290,6 +340,31 @@ user reprioritizes them.
   context.
 - Hide or collapse sections with no useful content while keeping layout stable.
 
+### Subagent traces
+
+- Represent each delegated subagent as a first-class child session in the parent conversation rather than a
+  one-line opaque tool result.
+- While a subagent is working, show a compact live summary in the main trace with its current status and most
+  recent tool calls. Update incrementally from authoritative child-session events without making the parent
+  timeline jump or flooding it with every child part.
+- Make the subagent row navigable into a dedicated full-screen trace for that child session. Stream its complete
+  reasoning-visible prose, tool calls, results, retries, questions, permissions, errors, and completion state
+  using the same rendering quality and interaction model as the parent session.
+- When a subagent has finished, opening it shows its complete retained work rather than only its final summary;
+  returning restores the exact parent timeline position and expanded state.
+- Preserve parent/child identity, nested delegation, active status, and event routing across tab changes and SSE
+  reconnects. Never merge child parts into the parent message or attach a child event to the wrong directory.
+- Expose clear keyboard, pointer, breadcrumb, and back-navigation affordances. Aborting a child versus the parent
+  must be explicit and invoke the correct OpenCode session action.
+
+Acceptance:
+
+- A running subagent's parent row updates with its latest meaningful tool calls and status without flashing or
+  scrolling the parent trace.
+- Entering a running subagent opens its own live trace; entering a completed subagent shows its full historical
+  trace, and returning lands at the same parent position.
+- Multiple and nested subagents remain correctly scoped, independently abortable, and recover after reconnect.
+
 ### Tabs and directory identity
 
 - Make `Ctrl+T` create a new tab even when that directory is already open.
@@ -303,8 +378,15 @@ user reprioritizes them.
 
 - Retain `/sessions`, `/resume`, `/continue`, `/new`, `/clear`, `/workspaces`, `/move`, `/help`,
   `/exit`, `/quit`, and `/q`.
-- Add capability-aware `/models`, `/agents`, `/mcps`, `/variants`, `/connect`, `/org`, `/status`,
-  `/debug`, and `/themes` experiences, including `/mo`, `/orgs`, and `/switch-org` aliases.
+- Implement the currently missing OpenCode TUI commands `/connect`, `/debug`, `/diff`, `/editor`, `/skills`,
+  and `/status` as their real upstream experiences, not prompt text or placeholders.
+- Implement `/timeline` by studying OpenCode's source and reproducing its timeline menu and actions, including
+  navigating backward through the conversation, inspecting prior turns, copying a previous prompt, and every
+  other action exposed by the connected OpenCode version.
+- Retain the existing `/models` experience but pin its title and search field during keyboard scrolling, and
+  bring its labels, grouping, provider state, aliases, and selection semantics to upstream parity.
+- Add capability-aware `/agents`, `/mcps`, `/variants`, `/org`, and `/themes` experiences, including `/mo`,
+  `/orgs`, and `/switch-org` aliases.
 - Add `/share`, `/unshare`, `/rename`, `/timeline`, `/fork`, `/compact`, `/summarize`, session
   `/undo`, session `/redo`, `/copy`, `/export`, `/timestamps`, and `/thinking`; `/summarize` aliases
   `/compact`, `/toggle-timestamps` aliases `/timestamps`, and `/toggle-thinking` aliases `/thinking`.
@@ -312,6 +394,43 @@ user reprioritizes them.
 - Inventory runtime commands from `command.list`; distinguish config, MCP, skill, plugin, and built-in
   sources rather than hard-coding extension commands.
 - Implement each command as its real feature/dialog/action, not as a placeholder entry.
+- Audit every action currently exposed by OpenCode TUI's Ctrl+P menu. Mirror the complete available set in
+  the desktop command palette, preserve upstream grouping, labels, keybindings, capability/disabled state,
+  and aliases, and route actions to the same real dialogs, menus, or server operations used by slash commands.
+- Keep slash commands and command-palette actions backed by one capability-aware action registry so neither
+  surface silently falls behind the other or the connected server version.
+
+Acceptance:
+
+- `/connect`, `/debug`, `/diff`, `/timeline`, `/editor`, `/models`, `/skills`, and `/status` match the current
+  OpenCode TUI behavior, with `/timeline` specifically verified against its upstream menu and actions.
+- The desktop command palette accounts for every action available in the connected OpenCode TUI Ctrl+P menu;
+  unsupported actions explain their unavailable state rather than disappearing or acting as placeholders.
+- Runtime commands from config, MCP, skills, and plugins appear without requiring a desktop release.
+
+### Integrated terminal
+
+- Add a native integrated terminal backed by a real PTY, scoped to the active directory tab and inheriting the
+  same environment expectations as OpenCode rather than emulating a shell through prompt submissions.
+- Support create, focus, split, resize, close, restart, clear, copy/paste, selection, scrollback, search, links,
+  shell title/cwd updates, exit status, and multiple terminal sessions per directory.
+- Provide complete keyboard navigation and command-palette actions without stealing composer, timeline, or
+  global shortcuts when the terminal is not focused.
+- Keep PTY reads, process waits, parsing, and scrollback work off GPUI's thread; render incrementally with
+  bounded history and sustained-output backpressure.
+- Preserve terminal pane geometry and process-local sessions while the app runs. On app shutdown, terminate
+  only PTYs owned by this app; do not claim that shell processes survive restart unless that behavior is
+  explicitly designed later.
+- Integrate terminal visibility with the workbench layout at desktop and narrow widths without hiding required
+  session context or overlapping the composer and inspector.
+
+Acceptance:
+
+- A terminal opens in the active directory, runs interactive full-screen and ordinary CLI programs, resizes
+  correctly, and streams heavy output without blocking direct interactions.
+- Multiple tabs and splits keep independent cwd, process, selection, scroll, and exit state.
+- Copy/paste, search, links, keyboard focus transfer, close confirmation for live processes, and app shutdown
+  ownership behave like desktop terminal interactions.
 
 ### Navigation, persistence, and desktop integration
 
