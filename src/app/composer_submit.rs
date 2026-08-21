@@ -29,7 +29,7 @@ impl Workspace {
                 .map_or((command, ""), |(name, arguments)| (name, arguments.trim()));
             if !name.is_empty() {
                 if let Some(action) = super::composer_slashes::local_slash(name) {
-                    self.execute_local_slash(action, cx);
+                    self.execute_command(action, cx);
                     return;
                 }
                 self.submit_command_in(directory, name, arguments, cx);

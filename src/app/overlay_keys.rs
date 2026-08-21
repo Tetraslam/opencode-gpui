@@ -41,6 +41,8 @@ impl Workspace {
             Overlay::Directory => self.directory_suggestions.len(),
             Overlay::Command => self.command_suggestions.len(),
             Overlay::Selection(_) => self.selection_suggestions.len(),
+            Overlay::Timeline => self.timeline_suggestions.len(),
+            Overlay::MessageActions => 3,
             Overlay::None => return,
         };
         if count == 0 {
@@ -52,10 +54,16 @@ impl Workspace {
         .unwrap_or_default();
         let item = self.overlay_selection
             + match self.overlay {
-                Overlay::Command => 1,
-                Overlay::Directory | Overlay::Selection(_) | Overlay::None => 0,
+                Overlay::Command | Overlay::Timeline => 1,
+                Overlay::Directory
+                | Overlay::Selection(_)
+                | Overlay::MessageActions
+                | Overlay::None => 0,
             };
         self.picker_scroll.scroll_to_item(item);
+        if self.overlay == Overlay::Timeline {
+            self.preview_timeline_selection();
+        }
         cx.notify();
     }
 }

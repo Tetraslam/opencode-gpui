@@ -3,7 +3,7 @@ use opencode_gpui::{editor::TextEditor, event::SessionStatus};
 
 use super::{TimelineState, Workspace, command_palette::Overlay};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Command {
     OpenDirectory,
     NewSession,
@@ -21,10 +21,13 @@ pub(crate) enum Command {
     SelectModel,
     SelectVariant,
     ToggleDiffExpansion,
+    Timeline,
+    ShowCommandPalette,
+    ExitApp,
 }
 
 impl Command {
-    const ALL: [Self; 16] = [
+    const ALL: [Self; 18] = [
         Self::OpenDirectory,
         Self::NewSession,
         Self::ToggleSessions,
@@ -41,6 +44,8 @@ impl Command {
         Self::SelectModel,
         Self::SelectVariant,
         Self::ToggleDiffExpansion,
+        Self::Timeline,
+        Self::ExitApp,
     ];
 
     pub(super) const fn label(self) -> &'static str {
@@ -61,6 +66,9 @@ impl Command {
             Self::SelectModel => "select model",
             Self::SelectVariant => "select model variant",
             Self::ToggleDiffExpansion => "toggle automatic diff expansion",
+            Self::Timeline => "timeline",
+            Self::ShowCommandPalette => "show command palette",
+            Self::ExitApp => "exit the app",
         }
     }
 
@@ -74,12 +82,15 @@ impl Command {
                 "prompt"
             }
             Self::CloseInspector | Self::ToggleDiffExpansion => "view",
+            Self::ShowCommandPalette => "help",
+            Self::ExitApp => "application",
             Self::NewSession
             | Self::ToggleSessions
             | Self::NextSession
             | Self::PreviousSession
             | Self::AbortSession
-            | Self::LoadOlder => "session",
+            | Self::LoadOlder
+            | Self::Timeline => "session",
         }
     }
 
@@ -100,13 +111,19 @@ impl Command {
             | Self::SelectAgent
             | Self::SelectModel
             | Self::SelectVariant
-            | Self::ToggleDiffExpansion => "",
+            | Self::ToggleDiffExpansion
+            | Self::Timeline
+            | Self::ShowCommandPalette
+            | Self::ExitApp => "",
         }
     }
 
     fn available(self, workspace: &Workspace) -> bool {
         let Some(tab) = workspace.active_tab() else {
-            return matches!(self, Self::OpenDirectory);
+            return matches!(
+                self,
+                Self::OpenDirectory | Self::ShowCommandPalette | Self::ExitApp
+            );
         };
         match self {
             Self::NextWorkspace | Self::PreviousWorkspace => workspace.tabs.len() > 1,
@@ -131,6 +148,7 @@ impl Command {
                 super::composer_catalog::CatalogState::Loading
                 | super::composer_catalog::CatalogState::Failed(_) => false,
             },
+            Self::Timeline => matches!(tab.timeline, TimelineState::Ready { .. }),
             Self::OpenDirectory
             | Self::NewSession
             | Self::ToggleSessions
@@ -138,7 +156,9 @@ impl Command {
             | Self::FocusComposer
             | Self::SelectAgent
             | Self::SelectModel
-            | Self::ToggleDiffExpansion => true,
+            | Self::ToggleDiffExpansion
+            | Self::ShowCommandPalette
+            | Self::ExitApp => true,
         }
     }
 }
@@ -238,6 +258,13 @@ impl Workspace {
                     }
                 }
             }
+            Command::Timeline => self.open_timeline(cx),
+            Command::ShowCommandPalette => {
+                self.overlay = Overlay::Command;
+                self.refresh_command_suggestions("");
+                self.focus_overlay_on_render = true;
+            }
+            Command::ExitApp => cx.quit(),
         }
         if self.overlay == Overlay::None {
             self.focus_editor_on_render = true;

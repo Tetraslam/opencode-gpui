@@ -25,10 +25,16 @@ impl Workspace {
             });
         }
         if std::mem::take(&mut self.focus_overlay_on_render) {
+            if self.overlay == Overlay::MessageActions {
+                self.focus_handle.focus(window);
+                return;
+            }
             let editor = match self.overlay {
                 Overlay::Directory => Some(self.directory_editor.clone()),
-                Overlay::Command | Overlay::Selection(_) => Some(self.command_editor.clone()),
-                Overlay::None => None,
+                Overlay::Command | Overlay::Selection(_) | Overlay::Timeline => {
+                    Some(self.command_editor.clone())
+                }
+                Overlay::MessageActions | Overlay::None => None,
             };
             if let Some(editor) = editor {
                 window.defer(cx, move |window, cx| {
@@ -193,7 +199,11 @@ impl Render for Workspace {
         div()
             .size_full()
             .relative()
-            .key_context("Workspace")
+            .key_context(if self.overlay == Overlay::MessageActions {
+                "MessageActions"
+            } else {
+                "Workspace"
+            })
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Workspace::toggle_directory_picker))
             .on_action(cx.listener(Workspace::toggle_command_palette))
@@ -208,6 +218,7 @@ impl Render for Workspace {
             .on_action(cx.listener(Workspace::next_session))
             .on_action(cx.listener(Workspace::select_previous_overlay_item))
             .on_action(cx.listener(Workspace::select_next_overlay_item))
+            .on_action(cx.listener(Workspace::submit_message_action))
             .on_mouse_down(MouseButton::Left, cx.listener(Workspace::dismiss_on_click))
             .on_mouse_move(cx.listener(Workspace::handle_pointer_drag))
             .on_mouse_up(
@@ -248,6 +259,8 @@ impl Render for Workspace {
             .children(self.render_directory_picker(cx))
             .children(self.render_command_palette(cx))
             .children(self.render_selection_overlay(cx))
+            .children(self.render_timeline_overlay(cx))
+            .children(self.render_message_actions(cx))
             .children(self.render_composer_completion(cx))
     }
 }

@@ -13,7 +13,7 @@ fn session_mutations_match_the_server_contract() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
-        for index in 0..8 {
+        for index in 0..10 {
             let (mut stream, _) = listener.accept().unwrap();
             let request = read_request(&mut stream);
             let (expected, body, status) = request_expectation(index);
@@ -21,31 +21,7 @@ fn session_mutations_match_the_server_contract() {
                 request.starts_with(expected),
                 "unexpected request: {request}"
             );
-            if index == 0 {
-                assert!(request.contains(r#"{"parentID":"ses_parent","title":"new"}"#));
-            }
-            if index == 1 {
-                assert!(request.contains(r#"{"title":"renamed"}"#));
-            }
-            if index == 3 {
-                assert!(request.contains(r#""messageID":"msg_test""#));
-                assert!(request.contains(r#""agent":"build""#));
-                assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
-                assert!(request.contains(r#""variant":"high""#));
-                assert!(request.contains(r#""type":"text","id":"prt_test","text":"hello""#));
-                assert!(request.contains(
-                    r#""type":"file","mime":"image/png","filename":"clipboard.png","url":"data:image/png;base64,AQID""#
-                ));
-            }
-            if index == 4 {
-                assert!(request.contains(r#""command":"review","arguments":"this""#));
-                assert!(request.contains(r#""mime":"image/png""#));
-            }
-            if index == 5 {
-                assert!(request.contains(r#""agent":"build""#));
-                assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
-                assert!(request.contains(r#""command":"git status""#));
-            }
+            assert_request_body(index, &request);
             write_response(&mut stream, status, &body);
         }
     });
@@ -105,10 +81,43 @@ fn session_mutations_match_the_server_contract() {
             .await
             .unwrap();
         submit_shell(&client).await;
+        let reverted = client.revert("ses_new", "msg_user").await.unwrap();
+        assert_eq!(reverted.id, "ses_new");
+        assert_eq!(reverted.revert.unwrap().message_id, "msg_user");
+        assert_eq!(
+            client.fork("ses_new", "msg_user").await.unwrap().id,
+            "ses_fork"
+        );
         assert!(client.abort_session("ses_new").await.unwrap());
         assert!(client.delete_session("ses_new").await.unwrap());
     });
     server.join().unwrap();
+}
+
+fn assert_request_body(index: usize, request: &str) {
+    match index {
+        0 => assert!(request.contains(r#"{"parentID":"ses_parent","title":"new"}"#)),
+        1 => assert!(request.contains(r#"{"title":"renamed"}"#)),
+        3 => {
+            assert!(request.contains(r#""messageID":"msg_test""#));
+            assert!(request.contains(r#""agent":"build""#));
+            assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
+            assert!(request.contains(r#""variant":"high""#));
+            assert!(request.contains(r#""type":"text","id":"prt_test","text":"hello""#));
+            assert!(request.contains(r#""type":"file","mime":"image/png","filename":"clipboard.png","url":"data:image/png;base64,AQID""#));
+        }
+        4 => {
+            assert!(request.contains(r#""command":"review","arguments":"this""#));
+            assert!(request.contains(r#""mime":"image/png""#));
+        }
+        5 => {
+            assert!(request.contains(r#""agent":"build""#));
+            assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
+            assert!(request.contains(r#""command":"git status""#));
+        }
+        6 | 7 => assert!(request.contains(r#"{"messageID":"msg_user"}"#)),
+        _ => {}
+    }
 }
 
 async fn submit_shell(client: &Client) {
@@ -160,6 +169,16 @@ fn request_expectation(index: usize) -> (&'static str, String, &'static str) {
             "200 OK",
         ),
         6 => (
+            "POST /session/ses_new/revert?directory=%2Fworkspace ",
+            session_revert_json(),
+            "200 OK",
+        ),
+        7 => (
+            "POST /session/ses_new/fork?directory=%2Fworkspace ",
+            session_json("ses_fork", "forked"),
+            "200 OK",
+        ),
+        8 => (
             "POST /session/ses_new/abort?directory=%2Fworkspace ",
             "true".into(),
             "200 OK",
@@ -217,6 +236,10 @@ fn session_json(id: &str, title: &str) -> String {
     format!(
         r#"{{"id":"{id}","projectID":"prj","directory":"/workspace","title":"{title}","version":"1.18.16","time":{{"created":1,"updated":2}}}}"#
     )
+}
+
+fn session_revert_json() -> String {
+    r#"{"id":"ses_new","projectID":"prj","directory":"/workspace","title":"renamed","version":"1.18.16","time":{"created":1,"updated":2},"revert":{"messageID":"msg_user","snapshot":"snap"}}"#.into()
 }
 
 fn test_client(address: SocketAddr) -> Client {

@@ -63,6 +63,18 @@ impl SelectionItem {
 }
 
 impl Workspace {
+    pub(super) fn refresh_active_overlay(&mut self, query: &str, cx: &mut Context<Self>) {
+        match self.overlay {
+            Overlay::Selection(_) => self.refresh_selection_suggestions(query, cx),
+            Overlay::Timeline => {
+                self.refresh_timeline_suggestions(query);
+                self.preview_timeline_selection();
+            }
+            Overlay::Command => self.refresh_command_suggestions(query),
+            Overlay::Directory | Overlay::MessageActions | Overlay::None => {}
+        }
+    }
+
     pub(super) fn open_selection(&mut self, kind: SelectionKind, cx: &mut Context<Self>) {
         if let Some(directory) = self.active_directory().map(str::to_owned) {
             self.load_composer_catalog(&directory, cx);
@@ -114,6 +126,8 @@ impl Workspace {
         match self.overlay {
             Overlay::Command => self.execute_command_palette(query, cx),
             Overlay::Selection(_) => self.accept_selection(self.overlay_selection, cx),
+            Overlay::Timeline => self.open_message_actions(cx),
+            Overlay::MessageActions => self.execute_message_action(cx),
             Overlay::Directory | Overlay::None => {}
         }
     }

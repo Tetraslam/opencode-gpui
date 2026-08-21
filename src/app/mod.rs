@@ -59,6 +59,10 @@ mod tab_bar;
 mod tabs;
 mod text_row;
 mod timeline;
+mod timeline_action_view;
+mod timeline_actions;
+mod timeline_overlay;
+mod timeline_overlay_view;
 mod timeline_reconcile;
 mod timeline_scroll;
 mod timeline_state;
@@ -167,6 +171,11 @@ pub struct Workspace {
     pub(super) directory_suggestions: Arc<Vec<String>>,
     pub(super) directory_suggestion_query: String,
     pub(super) command_suggestions: Arc<Vec<workspace_command::Command>>,
+    pub(super) timeline_history: Arc<Vec<MessageRecord>>,
+    pub(super) timeline_history_session: Option<String>,
+    pub(super) timeline_suggestions: Arc<Vec<timeline_overlay::TimelineEntry>>,
+    pub(super) timeline_query: String,
+    pub(super) timeline_message: Option<String>,
     pub(super) selection_suggestions: Arc<Vec<selection_overlay::SelectionItem>>,
     pub(super) selection_query: String,
     pub(super) selection_search: Option<Task<()>>,

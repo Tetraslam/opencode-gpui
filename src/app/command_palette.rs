@@ -18,6 +18,8 @@ pub(crate) enum Overlay {
     Directory,
     Command,
     Selection(super::selection_overlay::SelectionKind),
+    Timeline,
+    MessageActions,
 }
 
 impl Workspace {
@@ -87,6 +89,19 @@ impl Workspace {
                 tab.collapsed_parts.insert(selection);
                 cx.notify();
             }
+            return;
+        }
+        if self.overlay == Overlay::MessageActions {
+            self.overlay = Overlay::Timeline;
+            self.overlay_selection = self
+                .timeline_suggestions
+                .iter()
+                .position(|entry| {
+                    Some(entry.message_id.as_str()) == self.timeline_message.as_deref()
+                })
+                .unwrap_or_default();
+            self.command_editor.read(cx).focus_handle(cx).focus(window);
+            cx.notify();
             return;
         }
         self.overlay = Overlay::None;

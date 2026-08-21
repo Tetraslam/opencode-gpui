@@ -33,11 +33,7 @@ impl Workspace {
         });
         let command_change = cx.subscribe(&command_editor, |workspace, editor, _: &Changed, cx| {
             let query = editor.read(cx).text().to_owned();
-            if matches!(workspace.overlay, Overlay::Selection(_)) {
-                workspace.refresh_selection_suggestions(&query, cx);
-            } else {
-                workspace.refresh_command_suggestions(&query);
-            }
+            workspace.refresh_active_overlay(&query, cx);
             cx.notify();
         });
         let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
@@ -99,6 +95,11 @@ impl Workspace {
             directory_suggestions: Arc::new(Vec::new()),
             directory_suggestion_query: String::new(),
             command_suggestions: Arc::new(Vec::new()),
+            timeline_history: Arc::new(Vec::new()),
+            timeline_history_session: None,
+            timeline_suggestions: Arc::new(Vec::new()),
+            timeline_query: String::new(),
+            timeline_message: None,
             selection_suggestions: Arc::new(Vec::new()),
             selection_query: String::new(),
             selection_search: None,

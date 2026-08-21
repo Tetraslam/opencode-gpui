@@ -40,3 +40,32 @@ fn empty_query_activates_the_keyboard_selected_command(cx: &mut TestAppContext) 
         assert_eq!(workspace.overlay, Overlay::None);
     });
 }
+
+#[gpui::test]
+fn slash_and_palette_share_timeline_identity(cx: &mut TestAppContext) {
+    let workspace = workspace(
+        cx,
+        Vec::new(),
+        TimelineState::Ready {
+            session_id: "session".into(),
+            title: "title".into(),
+            messages: Vec::new(),
+        },
+    );
+    workspace.update(cx, |workspace, _| {
+        let slash = super::super::composer_slashes::local_slash("timeline").unwrap();
+        assert_eq!(slash, super::super::workspace_command::Command::Timeline);
+        assert!(workspace.filtered_commands("").contains(&slash));
+        assert!(
+            !workspace
+                .filtered_commands("")
+                .contains(&super::super::workspace_command::Command::ShowCommandPalette)
+        );
+        let completion = super::super::composer_slashes::local_slashes("timeline");
+        assert!(matches!(
+            completion.as_slice(),
+            [super::super::composer_completion::CompletionItem::Local { action, .. }]
+                if *action == slash
+        ));
+    });
+}

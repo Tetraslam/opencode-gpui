@@ -18,7 +18,8 @@ actions!(
         NextSession,
         CompleteDirectory,
         SelectPreviousOverlayItem,
-        SelectNextOverlayItem
+        SelectNextOverlayItem,
+        SubmitMessageAction
     ]
 );
 

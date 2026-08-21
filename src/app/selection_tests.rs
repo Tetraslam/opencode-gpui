@@ -7,9 +7,9 @@ use opencode_gpui::model::ModelRef;
 
 use super::*;
 use crate::app::composer_catalog::{ComposerCatalog, ComposerSelection};
-use crate::app::composer_completion::LocalSlash;
 use crate::app::composer_slashes;
 use crate::app::selection_overlay::{SelectionItem, SelectionKind};
+use crate::app::workspace_command::Command;
 
 #[test]
 fn catalog_filters_non_composer_entries_and_exposes_model_variants() {
@@ -103,7 +103,7 @@ fn keyboard_selection_changes_model_and_clears_stale_variant(cx: &mut TestAppCon
 fn local_model_alias_resolves_to_the_real_selector() {
     assert_eq!(
         composer_slashes::local_slash("mo"),
-        Some(LocalSlash::Models)
+        Some(Command::SelectModel)
     );
 }
 

@@ -2,7 +2,7 @@ use std::{ops::Range, sync::Arc};
 
 use gpui::{AppContext, Context, SharedString};
 
-use super::{Workspace, composer_slashes::local_slashes};
+use super::{Workspace, composer_slashes::local_slashes, workspace_command::Command};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum CompletionMode {
@@ -16,24 +16,12 @@ pub(super) enum CompletionItem {
     Local {
         name: &'static str,
         description: &'static str,
-        action: LocalSlash,
+        action: Command,
     },
     Command {
         name: String,
         description: SharedString,
     },
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum LocalSlash {
-    Sessions,
-    New,
-    Workspaces,
-    Agents,
-    Models,
-    Variants,
-    Help,
-    Exit,
 }
 
 #[derive(Clone, Debug)]
@@ -178,7 +166,7 @@ impl Workspace {
                 let editor = tab.editor.clone();
                 editor.update(cx, |editor, cx| editor.restore_text("", cx));
                 self.capture_active_draft(true, cx);
-                self.execute_local_slash(action, cx);
+                self.execute_command(action, cx);
                 return true;
             }
             CompletionItem::Command { name, .. } => format!("/{name} "),

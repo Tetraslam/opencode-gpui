@@ -1,10 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::Arc,
 };
 
 use gpui::{AppContext, Entity, Task, TestAppContext};
@@ -18,7 +14,7 @@ use opencode_gpui::{
 
 use super::{ServerState, TimelineState, Workspace, command_palette::Overlay, tabs::DirectoryTab};
 
-static TEST_ID: AtomicU64 = AtomicU64::new(1);
+type TestWorkspace = Entity<Workspace>;
 
 #[path = "draft_tests.rs"]
 mod draft_tests;
@@ -36,13 +32,15 @@ mod shell_tests;
 mod stream_tests;
 #[path = "test_helpers.rs"]
 mod test_helpers;
-use test_helpers::{session, session_in};
+#[path = "timeline_overlay_tests.rs"]
+mod timeline_overlay_tests;
+use test_helpers::{session, session_in, temp_path};
 
 fn workspace(
     cx: &mut TestAppContext,
     sessions: Vec<Session>,
     timeline: TimelineState,
-) -> Entity<Workspace> {
+) -> TestWorkspace {
     cx.new(|cx: &mut gpui::Context<Workspace>| {
         let client = Client::new("http://127.0.0.1:1", None, None, None).unwrap();
         let directory_editor = cx.new(|cx| TextEditor::new("directory", cx).preserve_on_submit());
@@ -63,11 +61,7 @@ fn workspace(
         });
         let command_change = cx.subscribe(&command_editor, |workspace, editor, _: &Changed, cx| {
             let query = editor.read(cx).text().to_owned();
-            if matches!(workspace.overlay, Overlay::Selection(_)) {
-                workspace.refresh_selection_suggestions(&query, cx);
-            } else {
-                workspace.refresh_command_suggestions(&query);
-            }
+            workspace.refresh_active_overlay(&query, cx);
             cx.notify();
         });
         let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
@@ -101,10 +95,7 @@ fn workspace(
             directory_switch: None,
             initial_directory: None,
             pending_workspace_layout: None,
-            layout_path: env::temp_dir().join(format!(
-                "opencode-gpui-test-workspace-{}.json",
-                TEST_ID.fetch_add(1, Ordering::Relaxed)
-            )),
+            layout_path: temp_path("workspace.json"),
             layout_save: None,
             overlay: Overlay::None,
             overlay_selection: 0,
@@ -112,10 +103,7 @@ fn workspace(
             composer_completion_scroll: gpui::ScrollHandle::new(),
             drafts: HashMap::new(),
             draft_save: None,
-            draft_path: env::temp_dir().join(format!(
-                "opencode-gpui-test-drafts-{}.json",
-                std::process::id()
-            )),
+            draft_path: temp_path("drafts.json"),
             directory_history: HashMap::new(),
             directory_history_save: None,
             settings: super::settings::Settings::default(),
@@ -132,6 +120,11 @@ fn workspace(
             directory_suggestions: Arc::new(Vec::new()),
             directory_suggestion_query: String::new(),
             command_suggestions: Arc::new(Vec::new()),
+            timeline_history: Arc::new(Vec::new()),
+            timeline_history_session: None,
+            timeline_suggestions: Arc::new(Vec::new()),
+            timeline_query: String::new(),
+            timeline_message: None,
             selection_suggestions: Arc::new(Vec::new()),
             selection_query: String::new(),
             selection_search: None,
