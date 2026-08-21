@@ -40,6 +40,7 @@ impl Workspace {
         let count = match self.overlay {
             Overlay::Directory => self.directory_suggestions.len(),
             Overlay::Command => self.command_suggestions.len(),
+            Overlay::Selection(_) => self.selection_suggestions.len(),
             Overlay::None => return,
         };
         if count == 0 {
@@ -52,7 +53,7 @@ impl Workspace {
         let item = self.overlay_selection
             + match self.overlay {
                 Overlay::Command => 1,
-                Overlay::Directory | Overlay::None => 0,
+                Overlay::Directory | Overlay::Selection(_) | Overlay::None => 0,
             };
         self.picker_scroll.scroll_to_item(item);
         cx.notify();

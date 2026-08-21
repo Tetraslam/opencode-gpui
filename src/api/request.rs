@@ -28,6 +28,8 @@ struct PromptBody {
     model: Option<crate::model::ModelRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    variant: Option<String>,
     parts: Vec<PromptPartInput>,
 }
 
@@ -109,6 +111,7 @@ impl ClientInner {
             message_id: prompt.message_id,
             model: prompt.model,
             agent: prompt.agent,
+            variant: prompt.variant,
             parts: std::iter::once(PromptPartInput::Text {
                 id: prompt.text_part_id,
                 text: prompt.text,

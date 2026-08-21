@@ -27,7 +27,7 @@ impl Workspace {
         if std::mem::take(&mut self.focus_overlay_on_render) {
             let editor = match self.overlay {
                 Overlay::Directory => Some(self.directory_editor.clone()),
-                Overlay::Command => Some(self.command_editor.clone()),
+                Overlay::Command | Overlay::Selection(_) => Some(self.command_editor.clone()),
                 Overlay::None => None,
             };
             if let Some(editor) = editor {
@@ -157,8 +157,8 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        self.restore_pending_detail_anchor(window);
         self.restore_render_focus(window, cx);
+        self.sync_tab_bar(cx);
         let timeline = self.render_timeline(cx);
         let composer = self.render_composer(cx);
         let sidebar = self.sessions_open.then(|| self.render_sidebar(cx));
@@ -218,7 +218,7 @@ impl Render for Workspace {
             .flex_col()
             .bg(rgb(color::BASE))
             .font_family(UI_FONT)
-            .child(self.render_titlebar(cx))
+            .child(self.tab_bar.clone())
             .child(
                 div()
                     .min_h_0()
@@ -247,6 +247,7 @@ impl Render for Workspace {
             .child(self.render_statusline())
             .children(self.render_directory_picker(cx))
             .children(self.render_command_palette(cx))
+            .children(self.render_selection_overlay(cx))
             .children(self.render_composer_completion(cx))
     }
 }

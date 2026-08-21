@@ -60,6 +60,8 @@ impl Workspace {
             events,
         ));
         self.active_tab = self.tabs.len() - 1;
+        let catalog_directory = self.tabs[self.active_tab].directory.clone();
+        self.load_composer_catalog(&catalog_directory, cx);
         self.focus_editor_on_render = true;
         self.select_default_session(cx);
         self.persist_workspace_layout(cx);

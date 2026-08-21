@@ -7,7 +7,7 @@ use super::{
 };
 
 pub(super) fn local_slashes(query: &str) -> Vec<CompletionItem> {
-    const ITEMS: [(&str, &str, &[&str], LocalSlash); 6] = [
+    const ITEMS: [(&str, &str, &[&str], LocalSlash); 9] = [
         (
             "sessions",
             "switch session",
@@ -15,6 +15,14 @@ pub(super) fn local_slashes(query: &str) -> Vec<CompletionItem> {
             LocalSlash::Sessions,
         ),
         ("new", "new session", &["clear"], LocalSlash::New),
+        ("agents", "select agent", &[], LocalSlash::Agents),
+        ("models", "select model", &["mo"], LocalSlash::Models),
+        (
+            "variants",
+            "select model variant",
+            &[],
+            LocalSlash::Variants,
+        ),
         ("workspaces", "open directory", &[], LocalSlash::Workspaces),
         (
             "move",
@@ -40,6 +48,20 @@ pub(super) fn local_slashes(query: &str) -> Vec<CompletionItem> {
         .collect()
 }
 
+pub(super) fn local_slash(name: &str) -> Option<LocalSlash> {
+    match name {
+        "sessions" | "resume" | "continue" => Some(LocalSlash::Sessions),
+        "new" | "clear" => Some(LocalSlash::New),
+        "workspaces" | "move" => Some(LocalSlash::Workspaces),
+        "agents" => Some(LocalSlash::Agents),
+        "models" | "mo" => Some(LocalSlash::Models),
+        "variants" => Some(LocalSlash::Variants),
+        "help" => Some(LocalSlash::Help),
+        "exit" | "quit" | "q" => Some(LocalSlash::Exit),
+        _ => None,
+    }
+}
+
 impl Workspace {
     pub(super) fn execute_local_slash(&mut self, action: LocalSlash, cx: &mut Context<Self>) {
         match action {
@@ -48,6 +70,15 @@ impl Workspace {
             LocalSlash::Workspaces => {
                 self.overlay = Overlay::Directory;
                 self.focus_overlay_on_render = true;
+            }
+            LocalSlash::Agents => {
+                self.open_selection(super::selection_overlay::SelectionKind::Agent, cx);
+            }
+            LocalSlash::Models => {
+                self.open_selection(super::selection_overlay::SelectionKind::Model, cx);
+            }
+            LocalSlash::Variants => {
+                self.open_selection(super::selection_overlay::SelectionKind::Variant, cx);
             }
             LocalSlash::Help => {
                 self.overlay = Overlay::Command;

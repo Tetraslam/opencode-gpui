@@ -4,7 +4,7 @@ use opencode_gpui::{
     theme::{MONO_FONT, color, size as ui_size},
 };
 
-use super::{TimelineState, Workspace};
+use super::{Workspace, composer_catalog::CatalogState};
 
 impl Workspace {
     pub(super) fn render_composer(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
@@ -170,21 +170,25 @@ impl Workspace {
         let Some(tab) = self.active_tab() else {
             return "open a directory to compose".into();
         };
-        let TimelineState::Ready { messages, .. } = &tab.timeline else {
-            return "select a session to compose".into();
-        };
-        messages
-            .iter()
-            .rev()
-            .find_map(|message| match &message.info {
-                opencode_gpui::model::Message::User(message) => Some(format!(
-                    "{}  |  {}/{}",
-                    message.agent, message.model.provider_id, message.model.model_id
-                )),
-                opencode_gpui::model::Message::Assistant(_) => None,
-            })
-            .unwrap_or_else(|| "server default agent and model".into())
-            .into()
+        match (&tab.selection.agent, &tab.selection.model) {
+            (Some(agent), Some(model)) => {
+                let variant = tab
+                    .selection
+                    .variant
+                    .as_ref()
+                    .map_or_else(String::new, |variant| format!("  |  {variant}"));
+                format!(
+                    "{agent}  |  {}/{}{}",
+                    model.provider_id, model.model_id, variant
+                )
+                .into()
+            }
+            _ => match &tab.catalog {
+                CatalogState::Loading => "loading agent and model catalog…".into(),
+                CatalogState::Failed(_) => "agent and model catalog unavailable".into(),
+                CatalogState::Ready(_) => "no selectable agent or model".into(),
+            },
+        }
     }
 }
 

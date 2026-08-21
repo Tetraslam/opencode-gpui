@@ -133,7 +133,12 @@ fn tool_summary(part: &Part, directory: &str) -> String {
             metadata.and_then(|value| value.get("count")),
             "file",
         ),
-        _ => title.unwrap_or(tool).to_owned(),
+        _ => {
+            let identity = tool_display_name(tool);
+            title
+                .filter(|title| !title.is_empty() && *title != identity)
+                .map_or_else(|| identity.clone(), |title| format!("{identity} · {title}"))
+        }
     };
     let status = state
         .and_then(|state| state.get("status"))
@@ -158,6 +163,19 @@ pub(super) fn tool_name(part: &Part) -> &str {
         .get("tool")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("tool")
+}
+
+pub(super) fn tool_display_name(tool: &str) -> String {
+    if matches!(
+        tool,
+        "bash" | "read" | "grep" | "glob" | "apply_patch" | "patch" | "edit" | "write" | "task"
+    ) {
+        return tool.replace('_', " ");
+    }
+    tool.split_once('_').map_or_else(
+        || tool.to_owned(),
+        |(source, action)| format!("{source} / {}", action.replace('_', " ")),
+    )
 }
 
 fn tool_icon(tool: &str) -> &'static str {
@@ -235,5 +253,27 @@ fn strip_inline_markers(text: &str) -> String {
         inner.to_owned()
     } else {
         trimmed.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mcp_tool_summary_keeps_server_and_action_visible() {
+        let part: Part = serde_json::from_str(
+            r#"{"id":"p","sessionID":"s","messageID":"m","type":"tool","tool":"github_resolve_review_thread","state":{"status":"completed","title":"Review thread resolved successfully"}}"#,
+        )
+        .expect("tool part");
+
+        assert_eq!(
+            one_line_summary(&part, "/work"),
+            "github / resolve review thread · Review thread resolved successfully"
+        );
+        assert_eq!(
+            tool_display_name("alphaxiv_answer_pdf_queries"),
+            "alphaxiv / answer pdf queries"
+        );
     }
 }

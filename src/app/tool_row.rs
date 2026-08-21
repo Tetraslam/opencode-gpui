@@ -90,7 +90,7 @@ fn tool_icon(tool: &str) -> &'static str {
         "grep" | "glob" => "*",
         "apply_patch" | "patch" | "edit" | "write" => "←",
         "task" => "@",
-        _ => "·",
+        _ => "m",
     }
 }
 

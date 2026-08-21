@@ -57,6 +57,15 @@ These are the next implementation tasks requested in the latest manual test pass
   including sustained key repeat with many sessions, drafts, and active statuses.
 - Preload every restored workspace's selected timeline and derived Markdown, image, diff, and sidebar
   state in the background. Cycling tabs must never trigger a lazy session or timeline load.
+- Coalesce workspace content redraw, editor focus transfer, and persistence until Ctrl+Tab key repeat
+  settles. Individual cycle events update only the in-memory target index and never invalidate the full
+  workbench view.
+- Render the tab strip as an isolated lightweight view so every Ctrl+Tab event highlights its target
+  immediately while conversation content remains settle-debounced.
+- Identify MCP calls by server and tool in both collapsed summaries and expanded detail. Friendly
+  result titles supplement identity rather than replacing it.
+- When tail following is disabled, expanding or collapsing trace detail preserves the current scroll
+  offset and grows downward instead of preserving the viewport's lower edge.
 
 Acceptance:
 
@@ -78,6 +87,14 @@ Acceptance:
   the measured switch path remains below 1 ms at p99.
 - After startup hydration completes, every restored tab opens from memory while autocycling; no tab
   displays a new loading state or starts network work because it became active.
+- Sustained autocycling does not enqueue one render, focus transfer, or disk write per key event; the
+  measured dispatch path remains comfortably below 1 ms at p99.
+- Every tab crossed during autocycling visibly highlights in sequence without triggering a conversation
+  render for each key event.
+- A GitHub MCP result visibly names `github / <tool>` before expansion and repeats that identity in the
+  expanded tool section.
+- Expanding and collapsing a visible trace part while scrolled above the tail does not move the content
+  above it or leave the viewport displaced afterward.
 
 ### Selectable text everywhere
 

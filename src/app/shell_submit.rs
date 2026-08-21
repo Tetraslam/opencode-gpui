@@ -1,7 +1,5 @@
+use super::Workspace;
 use gpui::Context;
-use opencode_gpui::model::{Message, ModelRef};
-
-use super::{TimelineState, Workspace};
 
 impl Workspace {
     pub(super) fn submit_shell_in(
@@ -30,8 +28,16 @@ impl Workspace {
             cx.notify();
             return;
         };
+        let (agent, model) = tab.selection.prompt_identity().map_or_else(
+            || {
+                super::composer_submit::previous_identity(&tab.timeline).map_or_else(
+                    || ("build".into(), None),
+                    |(agent, model)| (agent, Some(model)),
+                )
+            },
+            |(agent, model, _)| (agent, Some(model)),
+        );
         let client = tab.client.clone();
-        let (agent, model) = shell_identity(&tab.timeline);
         let directory = directory.to_owned();
         tab.prompt_error = None;
         cx.spawn(async move |workspace, cx| {
@@ -58,18 +64,4 @@ impl Workspace {
         })
         .detach();
     }
-}
-
-fn shell_identity(timeline: &TimelineState) -> (String, Option<ModelRef>) {
-    let TimelineState::Ready { messages, .. } = timeline else {
-        return ("build".into(), None);
-    };
-    messages
-        .iter()
-        .rev()
-        .find_map(|message| match &message.info {
-            Message::User(message) => Some((message.agent.clone(), Some(message.model.clone()))),
-            Message::Assistant(_) => None,
-        })
-        .unwrap_or_else(|| ("build".into(), None))
 }

@@ -17,6 +17,7 @@ pub(crate) enum Overlay {
     None,
     Directory,
     Command,
+    Selection(super::selection_overlay::SelectionKind),
 }
 
 impl Workspace {
@@ -71,11 +72,9 @@ impl Workspace {
             }
             return;
         }
-        if self.overlay != Overlay::None {
-            self.overlay = Overlay::None;
-            self.focus_active_editor(window, cx);
-            cx.notify();
-        }
+        self.overlay = Overlay::None;
+        self.focus_active_editor(window, cx);
+        cx.notify();
     }
 
     pub(super) fn execute_command_palette(&mut self, _query: &str, cx: &mut Context<Self>) {

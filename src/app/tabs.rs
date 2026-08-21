@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use gpui::{AppContext, Context, Entity, Pixels, ScrollHandle, SharedString, Subscription, Task};
+use gpui::{AppContext, Context, Entity, ScrollHandle, SharedString, Subscription, Task};
 use opencode_gpui::{
     api::{Client, CreateSession},
     editor::TextEditor,
@@ -37,12 +37,14 @@ pub(crate) struct DirectoryTab {
     pub(super) history_load: Option<Task<()>>,
     pub(super) timeline_scroll: ScrollHandle,
     pub(super) follow_tail: bool,
-    pub(super) pending_detail_anchor: Option<Pixels>,
     pub(super) editor: Entity<TextEditor>,
     pub(super) prompt_error: Option<SharedString>,
     pub(super) prompt_mode: super::prompt_mode::PromptMode,
     pub(super) composer_completion: Option<super::composer_completion::ComposerCompletion>,
     pub(super) completion_task: Option<Task<()>>,
+    pub(super) catalog: super::composer_catalog::CatalogState,
+    pub(super) catalog_load: Option<Task<()>>,
+    pub(super) selection: super::composer_catalog::ComposerSelection,
     pub(super) attached_files: HashSet<String>,
     pub(super) attached_images: Vec<super::image_attachment::PromptImage>,
     pub(super) _editor_subscriptions: Vec<Subscription>,
@@ -79,12 +81,14 @@ impl DirectoryTab {
             history_load: None,
             timeline_scroll: ScrollHandle::new(),
             follow_tail: true,
-            pending_detail_anchor: None,
             editor,
             prompt_error: None,
             prompt_mode: super::prompt_mode::PromptMode::Normal,
             composer_completion: None,
             completion_task: None,
+            catalog: super::composer_catalog::CatalogState::Loading,
+            catalog_load: None,
+            selection: super::composer_catalog::ComposerSelection::default(),
             attached_files: HashSet::new(),
             attached_images: Vec::new(),
             _editor_subscriptions: subscriptions,

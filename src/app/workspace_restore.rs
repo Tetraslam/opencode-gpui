@@ -62,7 +62,7 @@ impl Workspace {
                         .iter()
                         .position(|tab| tab.directory == active)
                 }) {
-                    workspace.switch_directory(index, cx);
+                    workspace.switch_directory_immediately(index, cx);
                 }
             });
         })

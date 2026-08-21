@@ -30,12 +30,18 @@ impl Workspace {
         let command_editor =
             cx.new(|cx| TextEditor::new("type a command", cx).preserve_on_submit());
         let command_submit = cx.subscribe(&command_editor, |workspace, _, event: &Submit, cx| {
-            workspace.execute_command_palette(&event.text, cx);
+            workspace.submit_active_overlay(&event.text, cx);
         });
         let command_change = cx.subscribe(&command_editor, |workspace, editor, _: &Changed, cx| {
-            workspace.refresh_command_suggestions(editor.read(cx).text());
+            let query = editor.read(cx).text().to_owned();
+            if matches!(workspace.overlay, Overlay::Selection(_)) {
+                workspace.refresh_selection_suggestions(&query, cx);
+            } else {
+                workspace.refresh_command_suggestions(&query);
+            }
             cx.notify();
         });
+        let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
         let server =
             env::var("OPENCODE_SERVER_URL").unwrap_or_else(|_| "http://127.0.0.1:4096".into());
         let client_result = Client::new(
@@ -67,7 +73,10 @@ impl Workspace {
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
             tabs: Vec::new(),
+            tab_bar,
+            _tab_bar_subscription: tab_bar_subscription,
             active_tab: 0,
+            directory_switch: None,
             initial_directory: env::var("OPENCODE_DIRECTORY").ok(),
             pending_workspace_layout: super::workspace_layout::load(),
             layout_path: super::workspace_layout::path(),
@@ -95,6 +104,9 @@ impl Workspace {
             directory_suggestions: Arc::new(Vec::new()),
             directory_suggestion_query: String::new(),
             command_suggestions: Arc::new(Vec::new()),
+            selection_suggestions: Arc::new(Vec::new()),
+            selection_query: String::new(),
+            selection_search: None,
             directory_completion: None,
             command_editor,
             _command_submit: command_submit,

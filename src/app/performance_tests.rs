@@ -88,6 +88,8 @@ fn sustained_workspace_switching_stays_sub_millisecond(cx: &mut TestAppContext) 
                 title: "performance".into(),
             };
         }
+        workspace.layout_save = None;
+        workspace.focus_editor_on_render = false;
         let mut samples = Vec::with_capacity(10_000);
         for iteration in 0..10_000 {
             let started = Instant::now();
@@ -97,6 +99,10 @@ fn sustained_workspace_switching_stays_sub_millisecond(cx: &mut TestAppContext) 
         samples.sort_unstable();
         let p99 = samples[samples.len() * 99 / 100];
         eprintln!("workspace switching p99: {p99:?}");
+        assert!(workspace.directory_switch.is_some());
+        assert_eq!(workspace.tab_bar.read(cx).active(), workspace.active_tab);
+        assert!(workspace.layout_save.is_none());
+        assert!(!workspace.focus_editor_on_render);
         assert!(
             p99 < Duration::from_millis(1),
             "workspace switching p99 {p99:?} exceeded 1 ms"

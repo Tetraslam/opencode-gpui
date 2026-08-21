@@ -12,7 +12,7 @@ use opencode_gpui::{
     api::Client,
     editor::{Changed, Submit, TextEditor},
     event::{Event, SessionStatus},
-    model::{Message, Part, Session, SessionTime},
+    model::{Message, Part, Session},
     theme::size as ui_size,
 };
 
@@ -26,32 +26,17 @@ mod draft_tests;
 mod overlay_tests;
 #[path = "performance_tests.rs"]
 mod performance_tests;
+#[path = "selection_tests.rs"]
+mod selection_tests;
 #[path = "session_selection_tests.rs"]
 mod session_selection_tests;
 #[path = "shell_tests.rs"]
 mod shell_tests;
 #[path = "stream_tests.rs"]
 mod stream_tests;
-
-fn session(id: &str, updated: u64) -> Session {
-    session_in(id, "/workspace", updated)
-}
-
-fn session_in(id: &str, directory: &str, updated: u64) -> Session {
-    Session {
-        id: id.into(),
-        project_id: "project".into(),
-        directory: directory.into(),
-        parent_id: None,
-        title: id.into(),
-        version: "1.18.16".into(),
-        time: SessionTime {
-            created: 1,
-            updated,
-            compacting: None,
-        },
-    }
-}
+#[path = "test_helpers.rs"]
+mod test_helpers;
+use test_helpers::{session, session_in};
 
 fn workspace(
     cx: &mut TestAppContext,
@@ -74,12 +59,18 @@ fn workspace(
             });
         let command_editor = cx.new(|cx| TextEditor::new("command", cx).preserve_on_submit());
         let command_submit = cx.subscribe(&command_editor, |workspace, _, event: &Submit, cx| {
-            workspace.execute_command_palette(&event.text, cx);
+            workspace.submit_active_overlay(&event.text, cx);
         });
         let command_change = cx.subscribe(&command_editor, |workspace, editor, _: &Changed, cx| {
-            workspace.refresh_command_suggestions(editor.read(cx).text());
+            let query = editor.read(cx).text().to_owned();
+            if matches!(workspace.overlay, Overlay::Selection(_)) {
+                workspace.refresh_selection_suggestions(&query, cx);
+            } else {
+                workspace.refresh_command_suggestions(&query);
+            }
             cx.notify();
         });
+        let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
         let editor = cx.new(|cx| TextEditor::new("prompt", cx));
         let subscription = cx.subscribe(&editor, |workspace, _, event: &Submit, cx| {
             workspace.submit_prompt_in("/workspace", event.text.clone(), cx);
@@ -103,7 +94,10 @@ fn workspace(
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
             tabs: vec![tab],
+            tab_bar,
+            _tab_bar_subscription: tab_bar_subscription,
             active_tab: 0,
+            directory_switch: None,
             initial_directory: None,
             pending_workspace_layout: None,
             layout_path: env::temp_dir().join(format!(
@@ -137,6 +131,9 @@ fn workspace(
             directory_suggestions: Arc::new(Vec::new()),
             directory_suggestion_query: String::new(),
             command_suggestions: Arc::new(Vec::new()),
+            selection_suggestions: Arc::new(Vec::new()),
+            selection_query: String::new(),
+            selection_search: None,
             directory_completion: None,
             command_editor,
             _command_submit: command_submit,

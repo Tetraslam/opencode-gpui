@@ -89,6 +89,41 @@ fn streams_directory_scoped_events() {
     server.join().unwrap();
 }
 
+#[test]
+fn fetches_typed_directory_catalogs() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        for _ in 0..2 {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 2048];
+            let length = stream.read(&mut request).unwrap();
+            let request = String::from_utf8_lossy(&request[..length]);
+            let body = if request.starts_with("GET /agent?directory=%2Fworkspace ") {
+                r#"[{"name":"build","description":"default","mode":"primary"},{"name":"explore","mode":"subagent","hidden":null}]"#
+            } else if request.starts_with("GET /provider?directory=%2Fworkspace ") {
+                r#"{"all":[{"id":"openai","name":"OpenAI","models":{"gpt-test":{"id":"gpt-test","providerID":"openai","name":"GPT Test","status":"active","variants":{"high":{"reasoningEffort":"high"}}}}}],"default":{"openai":"gpt-test"},"connected":["openai"]}"#
+            } else {
+                panic!("unexpected request: {request}");
+            };
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        }
+    });
+    let catalog = pollster::block_on(test_client(address).catalog()).unwrap();
+    assert_eq!(catalog.agents[0].name, "build");
+    assert_eq!(catalog.agents[1].hidden, None);
+    assert_eq!(catalog.providers.connected, ["openai"]);
+    let model = &catalog.providers.all[0].models["gpt-test"];
+    assert_eq!(model.provider_id, "openai");
+    assert!(model.variants.contains_key("high"));
+    server.join().unwrap();
+}
+
 fn test_client(address: std::net::SocketAddr) -> Client {
     Client::new(
         &format!("http://{address}"),

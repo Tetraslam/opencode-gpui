@@ -11,6 +11,7 @@ use super::{PartSelection, TimelineState, Workspace, chrome::centered_message};
 pub(crate) struct PreparedPart {
     kind: SharedString,
     tool: Option<SharedString>,
+    tool_label: Option<SharedString>,
     raw: SharedString,
     input: Option<SharedString>,
     output: Option<SharedString>,
@@ -23,17 +24,15 @@ impl PreparedPart {
         let raw = serde_json::to_string_pretty(part)
             .unwrap_or_else(|error| format!("serialization error: {error}"));
         let state = part.data.get("state");
+        let tool = part.data.get("tool").and_then(serde_json::Value::as_str);
         let diff = state
             .and_then(|state| state.get("metadata"))
             .and_then(|metadata| metadata.get("diff"))
             .and_then(serde_json::Value::as_str);
         Self {
             kind: part.kind.clone().into(),
-            tool: part
-                .data
-                .get("tool")
-                .and_then(serde_json::Value::as_str)
-                .map(|tool| SharedString::from(tool.to_owned())),
+            tool: tool.map(|tool| SharedString::from(tool.to_owned())),
+            tool_label: tool.map(|tool| super::part_format::tool_display_name(tool).into()),
             raw: raw.into(),
             input: state
                 .and_then(|state| state.get("input"))
@@ -98,9 +97,6 @@ impl Workspace {
                     return;
                 };
                 tab.preparing_parts.remove(&selection);
-                if tab.expanded_parts.contains(&selection) && !tab.follow_tail {
-                    tab.pending_detail_anchor = Some(tab.timeline_scroll.max_offset().height);
-                }
                 tab.detail_cache.insert(selection, prepared);
                 cx.notify();
             });
@@ -210,6 +206,13 @@ pub(super) fn render_part_detail(
             .flex()
             .flex_col()
             .gap_2()
+            .child(detail_section(
+                "tool",
+                prepared
+                    .tool_label
+                    .clone()
+                    .unwrap_or_else(|| "unknown".into()),
+            ))
             .child(detail_section(
                 "input",
                 prepared.input.clone().unwrap_or_else(|| "{}".into()),

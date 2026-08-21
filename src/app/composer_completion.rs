@@ -24,11 +24,14 @@ pub(super) enum CompletionItem {
     },
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum LocalSlash {
     Sessions,
     New,
     Workspaces,
+    Agents,
+    Models,
+    Variants,
     Help,
     Exit,
 }

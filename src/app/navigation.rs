@@ -1,12 +1,7 @@
-use gpui::{
-    ClickEvent, Context, Focusable, SharedString, Window, actions, div, prelude::*, px, rgb,
-};
-use opencode_gpui::{
-    editor::TextEditor,
-    theme::{MONO_FONT, color, size as ui_size},
-};
+use gpui::{Context, Focusable, Window, actions};
+use opencode_gpui::editor::TextEditor;
 
-use super::{Workspace, command_palette::Overlay, directory_path::directory_name};
+use super::{Workspace, command_palette::Overlay};
 
 actions!(
     workspace_navigation,
@@ -93,19 +88,18 @@ impl Workspace {
     pub(super) fn next_directory(
         &mut self,
         _: &NextDirectory,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if !self.tabs.is_empty() {
             self.switch_directory((self.active_tab + 1) % self.tabs.len(), cx);
-            self.focus_active_editor(window, cx);
         }
     }
 
     pub(super) fn previous_directory(
         &mut self,
         _: &PreviousDirectory,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if !self.tabs.is_empty() {
@@ -114,7 +108,6 @@ impl Workspace {
                 .checked_sub(1)
                 .unwrap_or(self.tabs.len() - 1);
             self.switch_directory(index, cx);
-            self.focus_active_editor(window, cx);
         }
     }
 
@@ -149,116 +142,10 @@ impl Workspace {
         cx.notify();
     }
 
-    pub(super) fn switch_directory(&mut self, index: usize, cx: &mut Context<Self>) {
-        if index >= self.tabs.len() || index == self.active_tab {
-            self.dismiss_transients();
-            cx.notify();
-            return;
-        }
-        self.dismiss_transients();
-        self.active_tab = index;
-        self.persist_workspace_layout(cx);
-        cx.notify();
-    }
-
     pub(super) fn focus_active_editor(&self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(editor) = self.active_tab().map(|tab| tab.editor.clone()) {
             editor.read(cx).focus_handle(cx).focus(window);
         }
-    }
-
-    pub(super) fn render_titlebar(&self, cx: &mut Context<Self>) -> gpui::AnyElement {
-        let active = self.active_tab;
-        let busy_directories = self.busy_directories();
-        let tabs = self.tabs.iter().enumerate().map(|(index, tab)| {
-            let directory = tab.directory.clone();
-            let busy = busy_directories.contains(directory.as_str());
-            div()
-                .id(SharedString::from(format!("directory-tab-{index}")))
-                .h_full()
-                .max_w(px(190.0))
-                .px_3()
-                .flex()
-                .items_center()
-                .gap_2()
-                .cursor_pointer()
-                .border_r_1()
-                .border_color(rgb(color::BORDER))
-                .when(index == active, |tab| tab.bg(rgb(color::SELECTED)))
-                .hover(|tab| tab.bg(rgb(color::HOVER)))
-                .on_click(cx.listener(move |workspace, _: &ClickEvent, window, cx| {
-                    workspace.switch_directory(index, cx);
-                    if let Some(editor) = workspace.active_tab().map(|tab| tab.editor.clone()) {
-                        editor.read(cx).focus_handle(cx).focus(window);
-                    }
-                }))
-                .child(
-                    div()
-                        .min_w_0()
-                        .flex_1()
-                        .truncate()
-                        .text_color(rgb(if index == active {
-                            color::TEXT_BRIGHT
-                        } else {
-                            color::TEXT_DIM
-                        }))
-                        .child(SharedString::from(directory_name(&directory).to_owned())),
-                )
-                .child(tab_close_button(index, cx))
-                .when(busy, |tab| {
-                    tab.child(div().size(px(5.0)).rounded_full().bg(rgb(color::GREEN)))
-                })
-        });
-        let reconnecting = self.active_directory().is_some() && !self.active_directory_is_live();
-
-        div()
-            .h(px(ui_size::TITLEBAR))
-            .flex_none()
-            .flex()
-            .items_center()
-            .bg(rgb(color::SURFACE))
-            .border_b_1()
-            .border_color(rgb(color::BORDER))
-            .font_family(MONO_FONT)
-            .text_xs()
-            .child(
-                div()
-                    .w(px(ui_size::ACTIVITY_RAIL))
-                    .h_full()
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .text_color(rgb(color::ACCENT))
-                    .child("oc"),
-            )
-            .child(div().min_w_0().h_full().flex_1().flex().children(tabs))
-            .child(
-                div()
-                    .id("open-directory")
-                    .h_full()
-                    .w(px(34.0))
-                    .flex_none()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .cursor_pointer()
-                    .text_color(rgb(color::TEXT_DIM))
-                    .hover(|button| button.bg(rgb(color::HOVER)).text_color(rgb(color::TEXT)))
-                    .on_click(cx.listener(|workspace, _, window, cx| {
-                        workspace.toggle_directory_picker(&ToggleDirectoryPicker, window, cx);
-                    }))
-                    .child("+"),
-            )
-            .children(reconnecting.then(|| {
-                div()
-                    .px_3()
-                    .flex_none()
-                    .text_center()
-                    .text_color(rgb(color::YELLOW))
-                    .child("reconnecting")
-            }))
-            .into_any_element()
     }
 
     pub(super) fn session_directory(&self, session_id: &str) -> Option<&str> {
@@ -271,27 +158,8 @@ impl Workspace {
             .map(|session| session.directory.as_str())
     }
 
-    fn active_directory_is_live(&self) -> bool {
+    pub(super) fn active_directory_is_live(&self) -> bool {
         self.active_directory()
             .is_some_and(|directory| self.connected_directories.contains(directory))
     }
-}
-
-fn tab_close_button(index: usize, cx: &mut Context<Workspace>) -> gpui::AnyElement {
-    div()
-        .id(SharedString::from(format!("close-directory-{index}")))
-        .size(px(20.0))
-        .flex_none()
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded_sm()
-        .text_color(rgb(color::TEXT_MUTED))
-        .hover(|button| button.bg(rgb(color::HOVER)).text_color(rgb(color::TEXT)))
-        .on_click(cx.listener(move |workspace, _, _, cx| {
-            cx.stop_propagation();
-            workspace.close_directory(index, cx);
-        }))
-        .child("x")
-        .into_any_element()
 }

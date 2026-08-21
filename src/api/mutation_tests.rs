@@ -29,6 +29,9 @@ fn session_mutations_match_the_server_contract() {
             }
             if index == 3 {
                 assert!(request.contains(r#""messageID":"msg_test""#));
+                assert!(request.contains(r#""agent":"build""#));
+                assert!(request.contains(r#""providerID":"openai","modelID":"gpt-test""#));
+                assert!(request.contains(r#""variant":"high""#));
                 assert!(request.contains(r#""type":"text","id":"prt_test","text":"hello""#));
                 assert!(request.contains(
                     r#""type":"file","mime":"image/png","filename":"clipboard.png","url":"data:image/png;base64,AQID""#
@@ -73,8 +76,12 @@ fn session_mutations_match_the_server_contract() {
                     message_id: "msg_test".into(),
                     text_part_id: "prt_test".into(),
                     text: "hello".into(),
-                    model: None,
-                    agent: None,
+                    model: Some(ModelRef {
+                        provider_id: "openai".into(),
+                        model_id: "gpt-test".into(),
+                    }),
+                    agent: Some("build".into()),
+                    variant: Some("high".into()),
                     files: vec![PromptFile {
                         mime: "image/png".into(),
                         filename: "clipboard.png".into(),

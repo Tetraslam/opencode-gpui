@@ -17,11 +17,14 @@ pub(crate) enum Command {
     PreviousWorkspace,
     CloseWorkspace,
     FocusComposer,
+    SelectAgent,
+    SelectModel,
+    SelectVariant,
     ToggleDiffExpansion,
 }
 
 impl Command {
-    const ALL: [Self; 13] = [
+    const ALL: [Self; 16] = [
         Self::OpenDirectory,
         Self::NewSession,
         Self::ToggleSessions,
@@ -34,6 +37,9 @@ impl Command {
         Self::PreviousWorkspace,
         Self::CloseWorkspace,
         Self::FocusComposer,
+        Self::SelectAgent,
+        Self::SelectModel,
+        Self::SelectVariant,
         Self::ToggleDiffExpansion,
     ];
 
@@ -51,6 +57,9 @@ impl Command {
             Self::PreviousWorkspace => "previous workspace",
             Self::CloseWorkspace => "close workspace",
             Self::FocusComposer => "focus composer",
+            Self::SelectAgent => "select agent",
+            Self::SelectModel => "select model",
+            Self::SelectVariant => "select model variant",
             Self::ToggleDiffExpansion => "toggle automatic diff expansion",
         }
     }
@@ -61,7 +70,9 @@ impl Command {
             | Self::NextWorkspace
             | Self::PreviousWorkspace
             | Self::CloseWorkspace => "workspace",
-            Self::FocusComposer => "prompt",
+            Self::FocusComposer | Self::SelectAgent | Self::SelectModel | Self::SelectVariant => {
+                "prompt"
+            }
             Self::CloseInspector | Self::ToggleDiffExpansion => "view",
             Self::NewSession
             | Self::ToggleSessions
@@ -86,6 +97,9 @@ impl Command {
             | Self::LoadOlder
             | Self::CloseInspector
             | Self::FocusComposer
+            | Self::SelectAgent
+            | Self::SelectModel
+            | Self::SelectVariant
             | Self::ToggleDiffExpansion => "",
         }
     }
@@ -110,11 +124,20 @@ impl Command {
                     && !tab.history_loading
             }
             Self::CloseInspector => tab.selected_part.is_some(),
+            Self::SelectVariant => match &tab.catalog {
+                super::composer_catalog::CatalogState::Ready(catalog) => {
+                    !catalog.variants(tab.selection.model.as_ref()).is_empty()
+                }
+                super::composer_catalog::CatalogState::Loading
+                | super::composer_catalog::CatalogState::Failed(_) => false,
+            },
             Self::OpenDirectory
             | Self::NewSession
             | Self::ToggleSessions
             | Self::CloseWorkspace
             | Self::FocusComposer
+            | Self::SelectAgent
+            | Self::SelectModel
             | Self::ToggleDiffExpansion => true,
         }
     }
@@ -178,6 +201,15 @@ impl Workspace {
             }
             Command::CloseWorkspace => self.close_directory(self.active_tab, cx),
             Command::FocusComposer => self.focus_editor_on_render = true,
+            Command::SelectAgent => {
+                self.open_selection(super::selection_overlay::SelectionKind::Agent, cx);
+            }
+            Command::SelectModel => {
+                self.open_selection(super::selection_overlay::SelectionKind::Model, cx);
+            }
+            Command::SelectVariant => {
+                self.open_selection(super::selection_overlay::SelectionKind::Variant, cx);
+            }
             Command::ToggleDiffExpansion => {
                 self.settings.expand_diffs = !self.settings.expand_diffs;
                 let enabled = self.settings.expand_diffs;

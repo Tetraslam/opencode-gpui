@@ -85,6 +85,9 @@ impl Workspace {
                         error: error.into(),
                     },
                 };
+                if let super::composer_catalog::CatalogState::Ready(catalog) = &tab.catalog {
+                    tab.selection.initialize(catalog, &tab.timeline);
+                }
                 workspace.refresh_markdown(&task_directory, cx);
                 workspace.refresh_image_cache(&task_directory, cx);
                 workspace.prepare_default_diffs(&task_directory, cx);

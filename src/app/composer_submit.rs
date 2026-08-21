@@ -28,6 +28,10 @@ impl Workspace {
                 .split_once(char::is_whitespace)
                 .map_or((command, ""), |(name, arguments)| (name, arguments.trim()));
             if !name.is_empty() {
+                if let Some(action) = super::composer_slashes::local_slash(name) {
+                    self.execute_local_slash(action, cx);
+                    return;
+                }
                 self.submit_command_in(directory, name, arguments, cx);
                 return;
             }
@@ -65,8 +69,16 @@ impl Workspace {
             cx.notify();
             return;
         };
+        let selected = tab.selection.prompt_identity();
+        let (optimistic_agent, optimistic_model) = selected.as_ref().map_or_else(
+            || fallback_identity(&tab.timeline),
+            |(agent, model, _)| (agent.clone(), model.clone()),
+        );
+        let (agent, model, variant) = selected
+            .map_or((None, None, None), |(agent, model, variant)| {
+                (Some(agent), Some(model), variant)
+            });
         let client = tab.client.clone();
-        let (agent, model) = last_identity(&tab.timeline);
         let created = now_millis();
         let message_id = format!("msg_gpui_{created:x}");
         let text_part_id = format!("prt_gpui_{created:x}");
@@ -78,8 +90,8 @@ impl Workspace {
             &text_part_id,
             &text,
             &files,
-            agent,
-            model,
+            optimistic_agent,
+            optimistic_model,
             created,
         );
         let directory = directory.to_owned();
@@ -93,8 +105,9 @@ impl Workspace {
                         message_id: message_id.clone(),
                         text_part_id,
                         text,
-                        model: None,
-                        agent: None,
+                        model,
+                        agent,
+                        variant,
                         files,
                     },
                 )
@@ -185,6 +198,33 @@ impl Workspace {
     }
 }
 
+pub(super) fn fallback_identity(timeline: &TimelineState) -> (String, ModelRef) {
+    previous_identity(timeline).unwrap_or_else(|| {
+        (
+            "build".into(),
+            ModelRef {
+                provider_id: "server".into(),
+                model_id: "default".into(),
+            },
+        )
+    })
+}
+
+pub(super) fn previous_identity(timeline: &TimelineState) -> Option<(String, ModelRef)> {
+    match timeline {
+        TimelineState::Ready { messages, .. } => {
+            messages
+                .iter()
+                .rev()
+                .find_map(|message| match &message.info {
+                    Message::User(message) => Some((message.agent.clone(), message.model.clone())),
+                    Message::Assistant(_) => None,
+                })
+        }
+        TimelineState::Empty | TimelineState::Loading { .. } | TimelineState::Failed { .. } => None,
+    }
+}
+
 fn prompt_files(
     tab: &mut super::tabs::DirectoryTab,
     directory: &str,
@@ -211,30 +251,6 @@ fn prompt_files(
     tab.attached_files.clear();
     tab.attached_images.clear();
     files
-}
-
-fn last_identity(timeline: &TimelineState) -> (String, ModelRef) {
-    let identity = match timeline {
-        TimelineState::Ready { messages, .. } => {
-            messages
-                .iter()
-                .rev()
-                .find_map(|message| match &message.info {
-                    Message::User(message) => Some((message.agent.clone(), message.model.clone())),
-                    Message::Assistant(_) => None,
-                })
-        }
-        TimelineState::Empty | TimelineState::Loading { .. } | TimelineState::Failed { .. } => None,
-    };
-    identity.unwrap_or_else(|| {
-        (
-            "build".into(),
-            ModelRef {
-                provider_id: "server".into(),
-                model_id: "default".into(),
-            },
-        )
-    })
 }
 
 fn now_millis() -> u64 {

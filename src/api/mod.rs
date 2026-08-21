@@ -1,3 +1,4 @@
+mod catalog;
 mod completion;
 mod request;
 mod runtime;
@@ -62,6 +63,7 @@ pub struct Prompt {
     pub text: String,
     pub model: Option<crate::model::ModelRef>,
     pub agent: Option<String>,
+    pub variant: Option<String>,
     pub files: Vec<PromptFile>,
 }
 
@@ -72,6 +74,9 @@ pub struct PromptFile {
     pub url: String,
 }
 
+pub use catalog::{
+    AgentCatalogEntry, CatalogResponse, ModelCatalogEntry, ProviderCatalog, ProviderCatalogEntry,
+};
 pub use sidebar::{FileDiff, LspStatus, McpStatus, SidebarSnapshot, Todo};
 
 #[derive(Clone, Debug, serde::Deserialize)]

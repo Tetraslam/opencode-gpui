@@ -3,6 +3,7 @@ mod bootstrap;
 mod chrome;
 mod command_palette;
 mod composer;
+mod composer_catalog;
 mod composer_completion;
 mod composer_completion_view;
 mod composer_images;
@@ -42,6 +43,7 @@ mod part_interaction;
 mod part_merge;
 mod prompt_mode;
 mod reducer;
+mod selection_overlay;
 mod session_creation;
 mod session_navigation;
 mod session_pane;
@@ -50,6 +52,7 @@ mod settings;
 mod shell_submit;
 mod sidebar_state;
 mod sidebar_view;
+mod tab_bar;
 mod tabs;
 mod text_row;
 mod timeline;
@@ -60,6 +63,7 @@ mod workspace_activity;
 mod workspace_command;
 mod workspace_layout;
 mod workspace_restore;
+mod workspace_switch;
 
 #[cfg(test)]
 mod tests;
@@ -127,7 +131,10 @@ pub struct Workspace {
     pub(super) pending_parts: HashMap<String, Vec<opencode_gpui::model::Part>>,
     pub(super) pending_deltas: HashMap<String, Vec<PendingDelta>>,
     pub(super) tabs: Vec<tabs::DirectoryTab>,
+    tab_bar: Entity<tab_bar::TabBar>,
+    pub(super) _tab_bar_subscription: Subscription,
     pub(super) active_tab: usize,
+    directory_switch: Option<Task<()>>,
     pub(super) initial_directory: Option<String>,
     pub(super) pending_workspace_layout: Option<workspace_layout::WorkspaceLayout>,
     layout_path: std::path::PathBuf,
@@ -155,6 +162,9 @@ pub struct Workspace {
     pub(super) directory_suggestions: Arc<Vec<String>>,
     pub(super) directory_suggestion_query: String,
     pub(super) command_suggestions: Arc<Vec<workspace_command::Command>>,
+    pub(super) selection_suggestions: Arc<Vec<selection_overlay::SelectionItem>>,
+    pub(super) selection_query: String,
+    pub(super) selection_search: Option<Task<()>>,
     pub(super) directory_completion: Option<Task<()>>,
     pub(super) command_editor: Entity<TextEditor>,
     pub(super) _command_submit: Subscription,
