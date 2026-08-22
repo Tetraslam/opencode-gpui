@@ -28,6 +28,8 @@ mod selection_tests;
 mod session_selection_tests;
 #[path = "shell_tests.rs"]
 mod shell_tests;
+#[path = "status_dialog_tests.rs"]
+mod status_dialog_tests;
 #[path = "stream_tests.rs"]
 mod stream_tests;
 #[path = "test_helpers.rs"]
@@ -133,6 +135,8 @@ fn workspace(
             _command_submit: command_submit,
             _command_change: command_change,
             connected_directories: HashSet::new(),
+            status_dialog: super::status_dialog::StatusDialogState::default(),
+            debug_dialog: super::debug_dialog::DebugDialogState::default(),
             _load: Task::ready(()),
         }
     })

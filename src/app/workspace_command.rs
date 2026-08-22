@@ -22,12 +22,14 @@ pub(crate) enum Command {
     SelectVariant,
     ToggleDiffExpansion,
     Timeline,
+    Status,
+    Debug,
     ShowCommandPalette,
     ExitApp,
 }
 
 impl Command {
-    const ALL: [Self; 18] = [
+    const ALL: [Self; 20] = [
         Self::OpenDirectory,
         Self::NewSession,
         Self::ToggleSessions,
@@ -45,6 +47,8 @@ impl Command {
         Self::SelectVariant,
         Self::ToggleDiffExpansion,
         Self::Timeline,
+        Self::Status,
+        Self::Debug,
         Self::ExitApp,
     ];
 
@@ -67,6 +71,8 @@ impl Command {
             Self::SelectVariant => "select model variant",
             Self::ToggleDiffExpansion => "toggle automatic diff expansion",
             Self::Timeline => "timeline",
+            Self::Status => "view status",
+            Self::Debug => "view debug info",
             Self::ShowCommandPalette => "show command palette",
             Self::ExitApp => "exit the app",
         }
@@ -82,7 +88,7 @@ impl Command {
                 "prompt"
             }
             Self::CloseInspector | Self::ToggleDiffExpansion => "view",
-            Self::ShowCommandPalette => "help",
+            Self::Status | Self::Debug | Self::ShowCommandPalette => "system",
             Self::ExitApp => "application",
             Self::NewSession
             | Self::ToggleSessions
@@ -113,6 +119,8 @@ impl Command {
             | Self::SelectVariant
             | Self::ToggleDiffExpansion
             | Self::Timeline
+            | Self::Status
+            | Self::Debug
             | Self::ShowCommandPalette
             | Self::ExitApp => "",
         }
@@ -122,7 +130,7 @@ impl Command {
         let Some(tab) = workspace.active_tab() else {
             return matches!(
                 self,
-                Self::OpenDirectory | Self::ShowCommandPalette | Self::ExitApp
+                Self::OpenDirectory | Self::Debug | Self::ShowCommandPalette | Self::ExitApp
             );
         };
         match self {
@@ -149,7 +157,9 @@ impl Command {
                 | super::composer_catalog::CatalogState::Failed(_) => false,
             },
             Self::Timeline => matches!(tab.timeline, TimelineState::Ready { .. }),
-            Self::OpenDirectory
+            Self::Status
+            | Self::Debug
+            | Self::OpenDirectory
             | Self::NewSession
             | Self::ToggleSessions
             | Self::CloseWorkspace
@@ -259,6 +269,8 @@ impl Workspace {
                 }
             }
             Command::Timeline => self.open_timeline(cx),
+            Command::Status => self.open_status_dialog(cx),
+            Command::Debug => self.open_debug_dialog(cx),
             Command::ShowCommandPalette => {
                 self.overlay = Overlay::Command;
                 self.refresh_command_suggestions("");

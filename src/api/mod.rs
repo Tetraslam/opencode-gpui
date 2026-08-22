@@ -4,10 +4,13 @@ mod request;
 mod runtime;
 mod session_actions;
 mod sidebar;
+mod status;
 mod stream;
 
 #[cfg(test)]
 mod mutation_tests;
+#[cfg(test)]
+mod status_tests;
 #[cfg(test)]
 mod tests;
 
@@ -78,6 +81,7 @@ pub use catalog::{
     AgentCatalogEntry, CatalogResponse, ModelCatalogEntry, ProviderCatalog, ProviderCatalogEntry,
 };
 pub use sidebar::{FileDiff, LspStatus, McpStatus, SidebarSnapshot, Todo};
+pub use status::{FormatterStatus, StatusConfig, StatusSnapshot};
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct SlashCommand {

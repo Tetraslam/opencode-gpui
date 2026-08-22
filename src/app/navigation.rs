@@ -19,7 +19,9 @@ actions!(
         CompleteDirectory,
         SelectPreviousOverlayItem,
         SelectNextOverlayItem,
-        SubmitMessageAction
+        SubmitMessageAction,
+        CopyDebugInfo,
+        ToggleStatusMcp
     ]
 );
 

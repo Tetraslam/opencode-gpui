@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 use super::{Client, ClientInner, Error};
 
@@ -13,14 +13,50 @@ pub struct SidebarSnapshot {
     pub context_limits: HashMap<String, u64>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
-#[serde(tag = "status", rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq)]
 pub enum McpStatus {
     Connected,
     Disabled,
-    Failed { error: String },
+    Failed {
+        error: String,
+    },
     NeedsAuth,
-    NeedsClientRegistration { error: String },
+    NeedsClientRegistration {
+        error: String,
+    },
+    Unknown {
+        status: String,
+        detail: Option<String>,
+    },
+}
+
+impl<'de> Deserialize<'de> for McpStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let status = value
+            .get("status")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| serde::de::Error::missing_field("status"))?;
+        let error = value
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        Ok(match status {
+            "connected" => Self::Connected,
+            "disabled" => Self::Disabled,
+            "failed" => Self::Failed { error },
+            "needs_auth" => Self::NeedsAuth,
+            "needs_client_registration" => Self::NeedsClientRegistration { error },
+            other => Self::Unknown {
+                status: other.to_owned(),
+                detail: (!error.is_empty()).then_some(error),
+            },
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]

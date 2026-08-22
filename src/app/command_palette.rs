@@ -20,6 +20,8 @@ pub(crate) enum Overlay {
     Selection(super::selection_overlay::SelectionKind),
     Timeline,
     MessageActions,
+    Status,
+    Debug,
 }
 
 impl Workspace {

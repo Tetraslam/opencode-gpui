@@ -9,6 +9,8 @@ mod composer_completion_view;
 mod composer_images;
 mod composer_slashes;
 mod composer_submit;
+mod debug_dialog;
+mod debug_dialog_view;
 mod default_diffs;
 mod diff_view;
 mod directory_completion;
@@ -38,6 +40,7 @@ mod navigation;
 mod navigation_keys;
 mod optimistic;
 mod overlay_keys;
+mod overlay_view;
 mod pane_resize;
 mod part_format;
 mod part_interaction;
@@ -55,6 +58,9 @@ mod settings;
 mod shell_submit;
 mod sidebar_state;
 mod sidebar_view;
+mod status_dialog;
+mod status_dialog_action;
+mod status_dialog_view;
 mod tab_bar;
 mod tabs;
 mod text_row;
@@ -184,6 +190,8 @@ pub struct Workspace {
     pub(super) _command_submit: Subscription,
     pub(super) _command_change: Subscription,
     pub(super) connected_directories: HashSet<String>,
+    pub(super) status_dialog: status_dialog::StatusDialogState,
+    pub(super) debug_dialog: debug_dialog::DebugDialogState,
     pub(super) _load: Task<()>,
 }
 

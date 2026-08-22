@@ -142,6 +142,7 @@ fn render_mcp(snapshot: &SidebarSnapshot) -> gpui::AnyElement {
                 McpStatus::Failed { .. } => ("failed", color::RED),
                 McpStatus::NeedsAuth => ("needs auth", color::YELLOW),
                 McpStatus::NeedsClientRegistration { .. } => ("needs registration", color::RED),
+                McpStatus::Unknown { status, .. } => (status.as_str(), color::RED),
             };
             status_row(name, label, status_color)
         }))

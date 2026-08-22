@@ -108,6 +108,8 @@ impl Workspace {
             _command_submit: command_submit,
             _command_change: command_change,
             connected_directories: HashSet::new(),
+            status_dialog: super::status_dialog::StatusDialogState::default(),
+            debug_dialog: super::debug_dialog::DebugDialogState::default(),
             _load: load,
         }
     }

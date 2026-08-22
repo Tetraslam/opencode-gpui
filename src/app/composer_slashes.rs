@@ -7,7 +7,7 @@ struct SlashDefinition {
     command: Command,
 }
 
-const DEFINITIONS: [SlashDefinition; 10] = [
+const DEFINITIONS: [SlashDefinition; 12] = [
     SlashDefinition {
         name: "sessions",
         description: "switch session",
@@ -55,6 +55,18 @@ const DEFINITIONS: [SlashDefinition; 10] = [
         description: "show command palette",
         aliases: &[],
         command: Command::ShowCommandPalette,
+    },
+    SlashDefinition {
+        name: "status",
+        description: "view status",
+        aliases: &[],
+        command: Command::Status,
+    },
+    SlashDefinition {
+        name: "debug",
+        description: "view debug info",
+        aliases: &[],
+        command: Command::Debug,
     },
     SlashDefinition {
         name: "exit",

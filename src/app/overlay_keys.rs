@@ -37,12 +37,22 @@ impl Workspace {
             }
             return;
         }
+        if self.overlay == Overlay::Status {
+            if self.status_dialog.move_selection(delta) {
+                self.picker_scroll
+                    .scroll_to_item(self.status_dialog.selected);
+                cx.notify();
+            }
+            return;
+        }
         let count = match self.overlay {
             Overlay::Directory => self.directory_suggestions.len(),
             Overlay::Command => self.command_suggestions.len(),
             Overlay::Selection(_) => self.selection_suggestions.len(),
             Overlay::Timeline => self.timeline_suggestions.len(),
             Overlay::MessageActions => 3,
+            Overlay::Status => unreachable!("status selection is handled above"),
+            Overlay::Debug => 0,
             Overlay::None => return,
         };
         if count == 0 {
@@ -58,6 +68,8 @@ impl Workspace {
                 Overlay::Directory
                 | Overlay::Selection(_)
                 | Overlay::MessageActions
+                | Overlay::Status
+                | Overlay::Debug
                 | Overlay::None => 0,
             };
         self.picker_scroll.scroll_to_item(item);

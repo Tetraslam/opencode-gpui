@@ -101,6 +101,22 @@ Acceptance:
 - On the implicit default connection, probe for an existing local OpenCode server and start
   `opencode serve` off GPUI's thread when absent. Retry readiness/bootstrap with bounded backoff, never
   replace an explicit `OPENCODE_SERVER_URL`, and stop only a server process owned by this app.
+- Provide one visible `Restart OpenCode server` action from Status and Ctrl+P for an app-owned local backend.
+  Restarting ends and reaps the owned process, launches it again with the same executable/configuration, waits
+  for readiness, and reconnects the existing desktop client without restarting or closing the application.
+- Preserve open directories, active session, drafts, visible timelines, scroll positions, and last-good sidebar
+  content throughout a backend restart. Re-establish every directory SSE stream, re-bootstrap sessions, and
+  reload agents, models, variants, commands, skills, MCP state, config, and other capabilities after reconnect.
+- Use backend restart to pick up changes that require a new OpenCode process, including MCP authentication and
+  configuration edits. Do not claim success until the new server exposes the refreshed state.
+- Before restart, make active-run behavior explicit: require confirmation when sessions are working, abort or
+  preserve them according to OpenCode's supported lifecycle, and never silently strand tool processes.
+- Never kill an explicit remote server or a local process the app does not own. Show why restart is unavailable
+  and how that server must be restarted by its external owner; add protocol-supported graceful restart later if
+  OpenCode exposes one.
+- Keep stop, wait, spawn, readiness probes, reconnect, and rehydration off GPUI's thread. Bound every phase,
+  escalate from graceful stop to kill only for the owned child, and expose retryable errors while retaining the
+  last-good workbench.
 - Pressing Escape while the active session is working sends OpenCode's real abort action immediately and
   visibly transitions through the authoritative server state. Escape must not merely hide an overlay or
   locally pretend the run stopped; overlay dismissal takes precedence only when an overlay is actually open.
@@ -136,6 +152,10 @@ Acceptance:
 - Launching with no server on `127.0.0.1:4096` starts one and reaches a ready session list without user
   intervention; existing, concurrent, explicit remote, disabled-autostart, occupied-port, missing-binary,
   startup-timeout, and app-shutdown cases produce deterministic ownership or actionable failure states.
+- One action restarts an app-owned backend after MCP auth or a config change; the desktop remains open, all
+  directory streams reconnect, capabilities refresh, and existing visual state does not flash or disappear.
+- Restart is disabled with a clear ownership explanation for explicit remote and unowned local servers. Failed
+  stop, spawn, readiness, and reconnect phases retain last-good state and offer a retry.
 - Pressing Escape during generation or tool execution aborts the server run; pressing it with an open overlay
   dismisses that overlay without accidentally aborting the session underneath.
 
@@ -380,6 +400,10 @@ Acceptance:
   `/exit`, `/quit`, and `/q`.
 - Implement the currently missing OpenCode TUI commands `/connect`, `/debug`, `/diff`, `/editor`, `/skills`,
   and `/status` as their real upstream experiences, not prompt text or placeholders.
+- `/status` is interactive where OpenCode exposes actions: MCP/server rows support the same Enter/Space
+  reconnect, connect, disconnect, reload, and authentication transitions as the current TUI. Actions refresh
+  authoritative status in place with visible progress and actionable failures rather than presenting a
+  read-only snapshot.
 - Implement `/timeline` by studying OpenCode's source and reproducing its timeline menu and actions, including
   navigating backward through the conversation, inspecting prior turns, copying a previous prompt, and every
   other action exposed by the connected OpenCode version.
@@ -404,6 +428,8 @@ Acceptance:
 
 - `/connect`, `/debug`, `/diff`, `/timeline`, `/editor`, `/models`, `/skills`, and `/status` match the current
   OpenCode TUI behavior, with `/timeline` specifically verified against its upstream menu and actions.
+- In `/status`, keyboard and pointer users can operate every server action exposed upstream, including
+  Enter/Space reload or connection actions, without closing the dialog or flashing its last-good state.
 - The desktop command palette accounts for every action available in the connected OpenCode TUI Ctrl+P menu;
   unsupported actions explain their unavailable state rather than disappearing or acting as placeholders.
 - Runtime commands from config, MCP, skills, and plugins appear without requiring a desktop release.

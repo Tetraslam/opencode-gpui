@@ -71,7 +71,11 @@ impl Workspace {
                 self.preview_timeline_selection();
             }
             Overlay::Command => self.refresh_command_suggestions(query),
-            Overlay::Directory | Overlay::MessageActions | Overlay::None => {}
+            Overlay::Directory
+            | Overlay::MessageActions
+            | Overlay::Status
+            | Overlay::Debug
+            | Overlay::None => {}
         }
     }
 
@@ -128,7 +132,7 @@ impl Workspace {
             Overlay::Selection(_) => self.accept_selection(self.overlay_selection, cx),
             Overlay::Timeline => self.open_message_actions(cx),
             Overlay::MessageActions => self.execute_message_action(cx),
-            Overlay::Directory | Overlay::None => {}
+            Overlay::Directory | Overlay::Status | Overlay::Debug | Overlay::None => {}
         }
     }
 

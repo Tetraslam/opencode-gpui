@@ -25,7 +25,10 @@ impl Workspace {
             });
         }
         if std::mem::take(&mut self.focus_overlay_on_render) {
-            if self.overlay == Overlay::MessageActions {
+            if matches!(
+                self.overlay,
+                Overlay::MessageActions | Overlay::Status | Overlay::Debug
+            ) {
                 self.focus_handle.focus(window);
                 return;
             }
@@ -34,7 +37,7 @@ impl Workspace {
                 Overlay::Command | Overlay::Selection(_) | Overlay::Timeline => {
                     Some(self.command_editor.clone())
                 }
-                Overlay::MessageActions | Overlay::None => None,
+                Overlay::MessageActions | Overlay::Status | Overlay::Debug | Overlay::None => None,
             };
             if let Some(editor) = editor {
                 window.defer(cx, move |window, cx| {
@@ -199,10 +202,11 @@ impl Render for Workspace {
         div()
             .size_full()
             .relative()
-            .key_context(if self.overlay == Overlay::MessageActions {
-                "MessageActions"
-            } else {
-                "Workspace"
+            .key_context(match self.overlay {
+                Overlay::MessageActions => "MessageActions",
+                Overlay::Debug => "DebugDialog",
+                Overlay::Status => "StatusDialog",
+                _ => "Workspace",
             })
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Workspace::toggle_directory_picker))
@@ -219,6 +223,8 @@ impl Render for Workspace {
             .on_action(cx.listener(Workspace::select_previous_overlay_item))
             .on_action(cx.listener(Workspace::select_next_overlay_item))
             .on_action(cx.listener(Workspace::submit_message_action))
+            .on_action(cx.listener(Workspace::copy_debug_info))
+            .on_action(cx.listener(Workspace::toggle_selected_status_mcp))
             .on_mouse_down(MouseButton::Left, cx.listener(Workspace::dismiss_on_click))
             .on_mouse_move(cx.listener(Workspace::handle_pointer_drag))
             .on_mouse_up(
@@ -256,12 +262,7 @@ impl Render for Workspace {
                     .children(inspector),
             )
             .child(self.render_statusline())
-            .children(self.render_directory_picker(cx))
-            .children(self.render_command_palette(cx))
-            .children(self.render_selection_overlay(cx))
-            .children(self.render_timeline_overlay(cx))
-            .children(self.render_message_actions(cx))
-            .children(self.render_composer_completion(cx))
+            .children(self.render_overlays(cx))
     }
 }
 
