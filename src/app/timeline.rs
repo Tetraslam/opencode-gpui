@@ -1,4 +1,6 @@
-use gpui::{ClickEvent, Context, SharedString, div, prelude::*, px, rgb};
+use std::time::Duration;
+
+use gpui::{Animation, AnimationExt, ClickEvent, Context, SharedString, div, prelude::*, px, rgb};
 use opencode_gpui::{
     model::{MessageRecord, Part},
     theme::{MONO_FONT, color, size as ui_size},
@@ -78,6 +80,8 @@ impl Workspace {
                     markdown_cache: &tab.markdown.documents,
                     markdown_renders: &tab.markdown_renders,
                     image_cache: &tab.images.images,
+                    trace_entrances: &self.trace_entrances,
+                    animate_trace_entries: self.settings.animate_trace_entries,
                     directory: &tab.directory,
                 };
                 let content = div()
@@ -184,14 +188,15 @@ impl Workspace {
                 .get(&selection)
                 .filter(|cached| cached.source == part.text().unwrap_or_default())
                 .map(|cached| cached.document.as_ref());
-            return Some(Self::render_text_part(
+            let element = Self::render_text_part(
                 part,
-                selection,
+                selection.clone(),
                 selected,
                 document,
                 state.markdown_renders,
                 cx,
-            ));
+            );
+            return Some(animate_part(element, &selection, state));
         }
         if part.kind == "file"
             && let Some(image) = state.image_cache.get(&selection).filter(|cached| {
@@ -203,30 +208,53 @@ impl Workspace {
                         .unwrap_or_default()
             })
         {
-            return Some(Self::render_image_part(
-                part,
-                selection,
-                selected,
-                image.image.clone(),
-                cx,
-            ));
+            let element =
+                Self::render_image_part(part, selection.clone(), selected, image.image.clone(), cx);
+            return Some(animate_part(element, &selection, state));
         }
         if part.kind == "file" {
-            return Some(Self::render_file_part(part, selection, selected, cx));
+            let element = Self::render_file_part(part, selection.clone(), selected, cx);
+            return Some(animate_part(element, &selection, state));
         }
         if super::part_format::is_tool_part(part) {
-            return Some(Self::render_tool_part(
+            let element = Self::render_tool_part(
                 part,
                 &selection,
                 expanded,
                 state.detail_cache,
                 state.directory,
                 cx,
-            ));
+            );
+            return Some(animate_part(element, &selection, state));
         }
 
-        Some(Self::render_event_part(
-            part, &selection, expanded, state, cx,
-        ))
+        let element = Self::render_event_part(part, &selection, expanded, state, cx);
+        Some(animate_part(element, &selection, state))
     }
+}
+
+fn animate_part(
+    element: gpui::AnyElement,
+    selection: &PartSelection,
+    state: &RenderState<'_>,
+) -> gpui::AnyElement {
+    if !state.animate_trace_entries || !state.trace_entrances.contains(selection) {
+        return element;
+    }
+    div()
+        .child(element)
+        .with_animation(
+            SharedString::from(format!(
+                "trace-entrance-{}-{}",
+                selection.message_id, selection.part_id
+            )),
+            Animation::new(Duration::from_millis(120)).with_easing(gpui::ease_out_quint()),
+            |element, delta| {
+                element
+                    .relative()
+                    .top(px((1.0 - delta) * 3.0))
+                    .opacity(0.35 + delta * 0.65)
+            },
+        )
+        .into_any_element()
 }

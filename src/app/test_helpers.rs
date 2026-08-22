@@ -1,4 +1,8 @@
-use opencode_gpui::model::{Session, SessionTime};
+use std::sync::Arc;
+
+use opencode_gpui::model::{
+    Message, MessageRecord, MessageTime, ModelRef, Part, Session, SessionTime, UserMessage,
+};
 
 static TEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
@@ -27,5 +31,35 @@ pub(super) fn session_in(id: &str, directory: &str, updated: u64) -> Session {
             compacting: None,
         },
         revert: None,
+    }
+}
+
+pub(super) fn message_record(id: &str, session_id: &str, created: u64) -> MessageRecord {
+    let mut data = serde_json::Map::new();
+    data.insert(
+        "text".into(),
+        serde_json::Value::String(format!("message {created}")),
+    );
+    MessageRecord {
+        info: Message::User(UserMessage {
+            id: id.into(),
+            session_id: session_id.into(),
+            time: MessageTime {
+                created,
+                completed: Some(created + 1),
+            },
+            agent: "build".into(),
+            model: ModelRef {
+                provider_id: "openai".into(),
+                model_id: "test".into(),
+            },
+        }),
+        parts: vec![Part {
+            id: format!("part-{id}"),
+            session_id: session_id.into(),
+            message_id: id.into(),
+            kind: "text".into(),
+            data: Arc::new(data),
+        }],
     }
 }

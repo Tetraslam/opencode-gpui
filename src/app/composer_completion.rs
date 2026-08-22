@@ -36,14 +36,24 @@ pub(super) struct ComposerCompletion {
 
 impl Workspace {
     pub(super) fn refresh_composer_completion(&mut self, directory: &str, cx: &mut Context<Self>) {
-        let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) else {
+        self.composer_completion_scroll.scroll_to_top_of_item(0);
+        let trigger = self
+            .tabs
+            .iter()
+            .find(|tab| tab.directory == directory)
+            .and_then(|tab| {
+                let editor = tab.editor.read(cx);
+                completion_trigger(editor.text(), editor.cursor_offset())
+            });
+        let Some((mode, range, query)) = trigger else {
+            if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) {
+                tab.composer_completion = None;
+                cx.notify();
+            }
             return;
         };
-        let editor = tab.editor.read(cx);
-        let Some((mode, range, query)) = completion_trigger(editor.text(), editor.cursor_offset())
-        else {
-            tab.composer_completion = None;
-            cx.notify();
+        self.clear_interrupt();
+        let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) else {
             return;
         };
         let client = tab.client.clone();
@@ -110,6 +120,9 @@ impl Workspace {
                     completion.items = Arc::new(items);
                     completion.selected = 0;
                     completion.loading = false;
+                    workspace
+                        .composer_completion_scroll
+                        .scroll_to_top_of_item(0);
                     cx.notify();
                 }
             });

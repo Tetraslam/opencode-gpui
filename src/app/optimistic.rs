@@ -18,9 +18,9 @@ pub(super) fn push_optimistic_message(
     agent: String,
     model: ModelRef,
     created: u64,
-) {
+) -> Option<MessageRecord> {
     let TimelineState::Ready { messages, .. } = &mut tab.timeline else {
-        return;
+        return None;
     };
     let mut text_data = serde_json::Map::new();
     text_data.insert("text".into(), serde_json::Value::String(text.into()));
@@ -47,7 +47,7 @@ pub(super) fn push_optimistic_message(
             data: Arc::new(data),
         }
     }));
-    messages.push(MessageRecord {
+    let record = MessageRecord {
         info: Message::User(UserMessage {
             id: message_id.into(),
             session_id: session_id.into(),
@@ -59,7 +59,9 @@ pub(super) fn push_optimistic_message(
             model,
         }),
         parts,
-    });
+    };
+    messages.push(record.clone());
     tab.timeline_scroll.scroll_to_bottom();
     tab.follow_tail = true;
+    Some(record)
 }

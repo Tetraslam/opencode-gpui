@@ -10,11 +10,16 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct Settings {
     #[serde(default = "enabled")]
     pub(super) expand_diffs: bool,
+    #[serde(default = "enabled")]
+    pub(super) animate_trace_entries: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { expand_diffs: true }
+        Self {
+            expand_diffs: true,
+            animate_trace_entries: true,
+        }
     }
 }
 
@@ -94,5 +99,6 @@ mod tests {
     fn missing_fields_keep_diff_expansion_enabled() {
         let file: SettingsFile = serde_json::from_str(r#"{"version":1,"settings":{}}"#).unwrap();
         assert!(file.settings.expand_diffs);
+        assert!(file.settings.animate_trace_entries);
     }
 }

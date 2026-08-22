@@ -37,5 +37,7 @@ pub(super) struct RenderState<'a> {
     pub(super) markdown_cache: &'a HashMap<PartSelection, CachedMarkdown>,
     pub(super) markdown_renders: &'a MarkdownRenderCache,
     pub(super) image_cache: &'a HashMap<PartSelection, CachedImage>,
+    pub(super) trace_entrances: &'a HashSet<PartSelection>,
+    pub(super) animate_trace_entries: bool,
     pub(super) directory: &'a str,
 }

@@ -12,8 +12,19 @@ impl Workspace {
         let Some((client, limit)) = self
             .tabs
             .iter()
-            .find(|tab| tab.directory == directory && tab.timeline.session_id() == Some(session_id))
-            .map(|tab| (tab.client.clone(), tab.message_limit))
+            .find(|tab| tab.directory == directory)
+            .filter(|tab| {
+                tab.timeline.session_id() == Some(session_id)
+                    || self.timeline_cache.contains(session_id)
+            })
+            .map(|tab| {
+                let limit = if tab.timeline.session_id() == Some(session_id) {
+                    tab.message_limit
+                } else {
+                    super::MESSAGE_PAGE
+                };
+                (tab.client.clone(), limit)
+            })
         else {
             return;
         };
@@ -24,6 +35,16 @@ impl Workspace {
                 return;
             };
             let _ = workspace.update(cx, |workspace, cx| {
+                let selected = workspace.tabs.iter().any(|tab| {
+                    tab.directory == directory
+                        && tab.timeline.session_id() == Some(session_id.as_str())
+                });
+                if !workspace.tabs.iter().any(|tab| tab.directory == directory)
+                    || (!selected && !workspace.timeline_cache.contains(&session_id))
+                {
+                    return;
+                }
+                workspace.timeline_cache.replace(&session_id, &messages);
                 let Some(tab) = workspace.tabs.iter_mut().find(|tab| {
                     tab.directory == directory
                         && tab.timeline.session_id() == Some(session_id.as_str())

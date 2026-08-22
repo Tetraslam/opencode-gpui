@@ -73,7 +73,7 @@ impl Workspace {
                 .bottom(px(96.0))
                 .w(px(720.0))
                 .max_h(px(340.0))
-                .overflow_scroll()
+                .overflow_y_scroll()
                 .track_scroll(&self.composer_completion_scroll)
                 .bg(rgb(color::ELEVATED))
                 .border_1()
@@ -87,6 +87,7 @@ impl Workspace {
                         cx.stop_propagation();
                     }),
                 )
+                .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
                 .children(state)
                 .children(rows)
                 .into_any_element()

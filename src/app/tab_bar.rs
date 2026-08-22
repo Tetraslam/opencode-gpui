@@ -78,6 +78,7 @@ pub(super) fn create(cx: &mut Context<Workspace>) -> (Entity<TabBar>, Subscripti
             TabBarEvent::Activate(index) => workspace.switch_directory_immediately(index, cx),
             TabBarEvent::Close(index) => workspace.close_directory(index, cx),
             TabBarEvent::OpenPicker => {
+                workspace.clear_interrupt();
                 workspace.overlay = super::command_palette::Overlay::Directory;
                 workspace.overlay_selection = 0;
                 workspace.directory_editor.update(cx, TextEditor::clear);

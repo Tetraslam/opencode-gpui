@@ -1,6 +1,30 @@
 use super::*;
 
 #[gpui::test]
+fn idle_status_events_clear_only_the_matching_interrupt_arm(cx: &mut TestAppContext) {
+    let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
+    workspace.update(cx, |workspace, _| {
+        workspace.interrupt_session = Some("active".into());
+        workspace.apply_events(
+            vec![Event::SessionStatus {
+                session_id: "other".into(),
+                status: SessionStatus::Idle,
+            }],
+            None,
+        );
+        assert_eq!(workspace.interrupt_session.as_deref(), Some("active"));
+
+        workspace.apply_events(
+            vec![Event::SessionIdle {
+                session_id: "active".into(),
+            }],
+            None,
+        );
+        assert!(workspace.interrupt_session.is_none());
+    });
+}
+
+#[gpui::test]
 fn overlay_selection_wraps_for_keyboard_navigation(cx: &mut TestAppContext) {
     let workspace = workspace(
         cx,

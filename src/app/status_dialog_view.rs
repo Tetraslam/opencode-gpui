@@ -34,6 +34,7 @@ impl Workspace {
                         .font_family(MONO_FONT)
                         .text_color(rgb(color::TEXT))
                         .on_mouse_down(MouseButton::Left, cx.listener(|_, _, _, cx| cx.stop_propagation()))
+                        .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
                         .child(dialog_header())
                         .child(
                             div()
@@ -73,7 +74,6 @@ impl Workspace {
         })
     }
 }
-
 fn dialog_header() -> gpui::AnyElement {
     div()
         .h(px(38.0))
@@ -97,7 +97,6 @@ fn dialog_header() -> gpui::AnyElement {
         )
         .into_any_element()
 }
-
 fn render_snapshot(
     snapshot: &StatusSnapshot,
     state: &StatusDialogState,
@@ -182,6 +181,7 @@ fn mcp_section(
                 .max_h(px(260.0))
                 .overflow_y_scroll()
                 .track_scroll(scroll)
+                .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
                 .children(
                     state
                         .mcp_names

@@ -37,23 +37,7 @@ impl Workspace {
             cx.notify();
         });
         let (tab_bar, tab_bar_subscription) = super::tab_bar::create(cx);
-        let connection = super::server_startup::prepare(cx);
-        let server = connection.url;
-        let client_result = connection.client;
-        let client = client_result.as_ref().ok().cloned();
-        let load_client = client.clone();
-        let setup_error = client_result.err().map(|error| error.to_string());
-        let server_start = connection.server_start;
-        let load = cx.spawn(async move |workspace, cx| {
-            let result =
-                super::server_startup::connect(load_client, setup_error, server_start).await;
-            let _ = workspace.update(cx, |workspace, cx| {
-                workspace.server_process = result.server;
-                workspace.apply_bootstrap(result.bootstrap, cx);
-                workspace.ensure_initial_tab(cx);
-                cx.notify();
-            });
-        });
+        let (server, client, load) = prepare_connection(cx);
         Self {
             focus_handle: cx.focus_handle(),
             client,
@@ -61,8 +45,13 @@ impl Workspace {
             server_state: ServerState::Loading,
             server_process: None,
             statuses: Arc::new(HashMap::new()),
+            interrupt_session: None,
+            interrupt_reset: None,
+            interrupt_generation: 0,
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
+            timeline_cache: super::timeline_cache::TimelineCache::default(),
+            trace_entrances: HashSet::new(),
             tabs: Vec::new(),
             tab_bar,
             _tab_bar_subscription: tab_bar_subscription,
@@ -129,4 +118,25 @@ impl Workspace {
             Err(error) => ServerState::Failed(error.into()),
         };
     }
+}
+
+fn prepare_connection(
+    cx: &mut Context<Workspace>,
+) -> (String, Option<opencode_gpui::api::Client>, gpui::Task<()>) {
+    let connection = super::server_startup::prepare(cx);
+    let server = connection.url;
+    let client = connection.client.as_ref().ok().cloned();
+    let load_client = client.clone();
+    let setup_error = connection.client.err().map(|error| error.to_string());
+    let load = cx.spawn(async move |workspace, cx| {
+        let result =
+            super::server_startup::connect(load_client, setup_error, connection.server_start).await;
+        let _ = workspace.update(cx, |workspace, cx| {
+            workspace.server_process = result.server;
+            workspace.apply_bootstrap(result.bootstrap, cx);
+            workspace.ensure_initial_tab(cx);
+            cx.notify();
+        });
+    });
+    (server, client, load)
 }

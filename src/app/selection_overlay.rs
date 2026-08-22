@@ -84,7 +84,9 @@ impl Workspace {
             self.load_composer_catalog(&directory, cx);
         }
         self.overlay = Overlay::Selection(kind);
+        self.clear_interrupt();
         self.overlay_selection = 0;
+        self.reset_picker_scroll();
         self.command_editor.update(cx, TextEditor::clear);
         self.refresh_selection_suggestions("", cx);
         self.focus_overlay_on_render = true;
@@ -120,6 +122,7 @@ impl Workspace {
                 {
                     workspace.selection_suggestions = Arc::new(items);
                     workspace.overlay_selection = 0;
+                    workspace.reset_picker_scroll();
                     cx.notify();
                 }
             });
@@ -193,6 +196,15 @@ impl Workspace {
                             MouseButton::Left,
                             cx.listener(|_, _, _, cx| cx.stop_propagation()),
                         )
+                        .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
+                        .child(
+                            div()
+                                .px_3()
+                                .pt_3()
+                                .pb_2()
+                                .text_sm()
+                                .child(selection_title(kind)),
+                        )
                         .child(
                             div()
                                 .p_2()
@@ -200,6 +212,15 @@ impl Workspace {
                                 .border_color(rgb(color::BORDER))
                                 .child(self.command_editor.clone()),
                         )
+                        .children(status.map(|status| {
+                            div()
+                                .p_3()
+                                .border_b_1()
+                                .border_color(rgb(color::BORDER))
+                                .text_xs()
+                                .text_color(rgb(color::TEXT_DIM))
+                                .child(status)
+                        }))
                         .child(
                             div()
                                 .id("selection-results")
@@ -207,13 +228,6 @@ impl Workspace {
                                 .flex_1()
                                 .overflow_y_scroll()
                                 .track_scroll(&self.picker_scroll)
-                                .children(status.map(|status| {
-                                    div()
-                                        .p_3()
-                                        .text_xs()
-                                        .text_color(rgb(color::TEXT_DIM))
-                                        .child(status)
-                                }))
                                 .children(self.selection_suggestions.iter().enumerate().map(
                                     |(index, item)| {
                                         selection_row(item, index, self.overlay_selection, cx)
@@ -240,6 +254,14 @@ impl Workspace {
             ),
             CatalogState::Ready(_) => None,
         }
+    }
+}
+
+const fn selection_title(kind: SelectionKind) -> &'static str {
+    match kind {
+        SelectionKind::Agent => "Select agent",
+        SelectionKind::Model => "Select model",
+        SelectionKind::Variant => "Select variant",
     }
 }
 

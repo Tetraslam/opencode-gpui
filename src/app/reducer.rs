@@ -34,9 +34,13 @@ impl Workspace {
                             }
                         }
                     }
+                    if !matches!(status, SessionStatus::Busy | SessionStatus::Retry { .. }) {
+                        self.clear_interrupt_for(&session_id);
+                    }
                     Arc::make_mut(&mut self.statuses).insert(session_id, status);
                 }
                 Event::SessionIdle { session_id } => {
+                    self.clear_interrupt_for(&session_id);
                     Arc::make_mut(&mut self.statuses).insert(session_id, SessionStatus::Idle);
                 }
                 Event::MessageUpdated(info) => self.update_message(&info, directory),
@@ -92,6 +96,7 @@ impl Workspace {
             Arc::make_mut(sessions).retain(|current| current.id != session.id);
         }
         Arc::make_mut(&mut self.statuses).remove(&session.id);
+        self.timeline_cache.remove_session(&session.id);
         for tab in &mut self.tabs {
             if tab.timeline.session_id() == Some(session.id.as_str()) {
                 tab.timeline = TimelineState::Empty;
@@ -102,6 +107,7 @@ impl Workspace {
 
     fn update_message(&mut self, info: &opencode_gpui::model::Message, directory: Option<&str>) {
         let pending = self.pending_parts.remove(info.id()).unwrap_or_default();
+        self.timeline_cache.update_message(info, &pending);
         for tab in &mut self.tabs {
             if directory.is_some_and(|directory| tab.directory != directory) {
                 continue;
@@ -132,6 +138,7 @@ impl Workspace {
     }
 
     fn remove_message(&mut self, session_id: &str, message_id: &str, directory: Option<&str>) {
+        self.timeline_cache.remove_message(session_id, message_id);
         for tab in &mut self.tabs {
             if directory.is_some_and(|directory| tab.directory != directory) {
                 continue;
@@ -152,8 +159,8 @@ impl Workspace {
         let message_id = part.message_id.clone();
         let part_id = part.id.clone();
         let mut pending = self.pending_deltas.remove(&message_id).unwrap_or_default();
-        let mut matched_timeline = false;
-        let mut matched_message = false;
+        let (mut matched_timeline, mut matched_message) =
+            self.timeline_cache.update_part(&part, delta, &pending);
         for tab in &mut self.tabs {
             if directory.is_some_and(|directory| tab.directory != directory) {
                 continue;
@@ -212,8 +219,9 @@ impl Workspace {
         delta: String,
         directory: Option<&str>,
     ) {
-        let mut applied = false;
-        let mut matched_timeline = false;
+        let (mut matched_timeline, mut applied) = self
+            .timeline_cache
+            .update_delta(session_id, message_id, part_id, field, &delta);
         for tab in &mut self.tabs {
             if directory.is_some_and(|directory| tab.directory != directory) {
                 continue;
@@ -258,6 +266,8 @@ impl Workspace {
         part_id: &str,
         directory: Option<&str>,
     ) {
+        self.timeline_cache
+            .remove_part(session_id, message_id, part_id);
         for tab in &mut self.tabs {
             if directory.is_some_and(|directory| tab.directory != directory) {
                 continue;

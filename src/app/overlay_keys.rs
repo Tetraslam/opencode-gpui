@@ -7,6 +7,10 @@ use super::{
 };
 
 impl Workspace {
+    pub(super) fn reset_picker_scroll(&self) {
+        self.picker_scroll.scroll_to_top_of_item(0);
+    }
+
     pub(super) fn select_previous_overlay_item(
         &mut self,
         _: &SelectPreviousOverlayItem,
@@ -58,24 +62,30 @@ impl Workspace {
         if count == 0 {
             return;
         }
-        self.overlay_selection = usize::try_from(
-            (self.overlay_selection.cast_signed() + delta).rem_euclid(count.cast_signed()),
-        )
-        .unwrap_or_default();
-        let item = self.overlay_selection
-            + match self.overlay {
-                Overlay::Command | Overlay::Timeline => 1,
-                Overlay::Directory
-                | Overlay::Selection(_)
-                | Overlay::MessageActions
-                | Overlay::Status
-                | Overlay::Debug
-                | Overlay::None => 0,
-            };
-        self.picker_scroll.scroll_to_item(item);
+        self.overlay_selection = wrapped_index(self.overlay_selection, delta, count);
+        if self.overlay != Overlay::MessageActions {
+            self.picker_scroll.scroll_to_item(self.overlay_selection);
+        }
         if self.overlay == Overlay::Timeline {
             self.preview_timeline_selection();
         }
         cx.notify();
+    }
+}
+
+fn wrapped_index(selected: usize, delta: isize, count: usize) -> usize {
+    usize::try_from((selected.cast_signed() + delta).rem_euclid(count.cast_signed()))
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wrapped_index;
+
+    #[test]
+    fn row_indices_wrap_without_chrome_offsets() {
+        assert_eq!(wrapped_index(0, -1, 4), 3);
+        assert_eq!(wrapped_index(3, 1, 4), 0);
+        assert_eq!(wrapped_index(1, 5, 4), 2);
     }
 }

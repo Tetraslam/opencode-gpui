@@ -14,6 +14,9 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.overlay != super::command_palette::Overlay::None {
+            return;
+        }
         let delta = event.delta.pixel_delta(window.line_height()).y;
         let Some(tab) = self.active_tab_mut() else {
             return;

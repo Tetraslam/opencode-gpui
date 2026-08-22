@@ -114,6 +114,7 @@ impl Workspace {
     }
 
     pub(super) fn dismiss_transients(&mut self) {
+        self.clear_interrupt();
         self.overlay = Overlay::None;
         self.directory_error = None;
         if let Some(tab) = self.active_tab_mut() {

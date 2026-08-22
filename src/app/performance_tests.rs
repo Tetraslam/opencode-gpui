@@ -109,3 +109,39 @@ fn sustained_workspace_switching_stays_sub_millisecond(cx: &mut TestAppContext) 
         );
     });
 }
+
+#[gpui::test]
+fn cached_session_selection_p99_stays_sub_millisecond(cx: &mut TestAppContext) {
+    let workspace = workspace(cx, Vec::new(), TimelineState::Empty);
+    workspace.update(cx, |workspace, cx| {
+        for session_id in ["busy", "idle"] {
+            let messages = (0..super::super::MESSAGE_PAGE)
+                .map(|index| {
+                    message_record(&format!("{session_id}-{index}"), session_id, index as u64)
+                })
+                .collect::<Vec<_>>();
+            workspace.timeline_cache.replace(session_id, &messages);
+        }
+        Arc::make_mut(&mut workspace.statuses).insert("busy".into(), SessionStatus::Busy);
+        Arc::make_mut(&mut workspace.statuses).insert("idle".into(), SessionStatus::Idle);
+
+        let mut samples = Vec::with_capacity(1_000);
+        for iteration in 0..1_000 {
+            let session_id = if iteration % 2 == 0 { "busy" } else { "idle" };
+            let started = Instant::now();
+            workspace.select_session_in("/workspace", session_id.into(), session_id.into(), cx);
+            samples.push(started.elapsed());
+        }
+        samples.sort_unstable();
+        let p99 = samples[samples.len() * 99 / 100];
+        eprintln!("cached session selection p99: {p99:?}");
+        assert!(
+            p99 < Duration::from_millis(1),
+            "cached session selection p99 {p99:?} exceeded 1 ms"
+        );
+        assert!(matches!(
+            workspace.tabs[0].timeline,
+            TimelineState::Ready { .. }
+        ));
+    });
+}

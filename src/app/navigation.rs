@@ -32,6 +32,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.clear_interrupt();
         self.overlay = if self.overlay == Overlay::Directory {
             Overlay::None
         } else {

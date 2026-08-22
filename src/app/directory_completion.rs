@@ -12,6 +12,7 @@ use super::Workspace;
 impl Workspace {
     pub(super) fn refresh_directory_suggestions(&mut self, query: String, cx: &mut Context<Self>) {
         self.overlay_selection = 0;
+        self.reset_picker_scroll();
         self.directory_suggestion_query.clone_from(&query);
         self.directory_suggestions = Arc::new(Vec::new());
         let roots = completion_roots(self.active_directory());
@@ -23,6 +24,7 @@ impl Workspace {
                 if workspace.directory_editor.read(cx).text() == query {
                     workspace.directory_suggestions =
                         Arc::new(workspace.merge_directory_candidates(&query, suggestions));
+                    workspace.reset_picker_scroll();
                     cx.notify();
                 }
             });

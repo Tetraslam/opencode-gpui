@@ -73,6 +73,7 @@ impl Workspace {
             return;
         };
         self.overlay = Overlay::Timeline;
+        self.clear_interrupt();
         self.overlay_selection = 0;
         self.timeline_query.clear();
         self.timeline_history = Arc::new(initial);
@@ -110,6 +111,7 @@ impl Workspace {
         query.clone_into(&mut self.timeline_query);
         self.timeline_suggestions = Arc::new(extract_entries(&self.timeline_history, query));
         self.overlay_selection = 0;
+        self.reset_picker_scroll();
         self.timeline_message = self
             .timeline_suggestions
             .first()
@@ -136,6 +138,11 @@ impl Workspace {
         self.timeline_suggestions = entries;
         if self.overlay == Overlay::Timeline {
             self.overlay_selection = selected;
+            if preserve_selection {
+                self.picker_scroll.scroll_to_item(selected);
+            } else {
+                self.reset_picker_scroll();
+            }
         }
     }
 

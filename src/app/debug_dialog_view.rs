@@ -31,6 +31,7 @@ impl Workspace {
                             MouseButton::Left,
                             cx.listener(|_, _, _, cx| cx.stop_propagation()),
                         )
+                        .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
                         .child(
                             div()
                                 .h(px(38.0))

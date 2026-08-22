@@ -31,6 +31,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.clear_interrupt();
         self.overlay = if self.overlay == Overlay::Command {
             Overlay::None
         } else {
@@ -54,6 +55,13 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         if self.overlay == Overlay::None {
+            if let Some(tab) = self.active_tab_mut()
+                && tab.composer_completion.take().is_some()
+            {
+                self.clear_interrupt();
+                cx.notify();
+                return;
+            }
             let busy_session = self.active_tab().and_then(|tab| {
                 let session_id = tab.timeline.session_id()?;
                 self.statuses
@@ -68,13 +76,7 @@ impl Workspace {
                     .then(|| session_id.to_owned())
             });
             if let Some(session_id) = busy_session {
-                self.abort_session(session_id, cx);
-                return;
-            }
-            if let Some(tab) = self.active_tab_mut()
-                && tab.composer_completion.take().is_some()
-            {
-                cx.notify();
+                self.arm_or_abort(session_id, cx);
                 return;
             }
             if let Some(tab) = self.active_tab_mut()
@@ -94,6 +96,7 @@ impl Workspace {
             return;
         }
         if self.overlay == Overlay::MessageActions {
+            self.clear_interrupt();
             self.overlay = Overlay::Timeline;
             self.overlay_selection = self
                 .timeline_suggestions
@@ -102,10 +105,12 @@ impl Workspace {
                     Some(entry.message_id.as_str()) == self.timeline_message.as_deref()
                 })
                 .unwrap_or_default();
+            self.picker_scroll.scroll_to_item(self.overlay_selection);
             self.command_editor.read(cx).focus_handle(cx).focus(window);
             cx.notify();
             return;
         }
+        self.clear_interrupt();
         self.overlay = Overlay::None;
         self.focus_active_editor(window, cx);
         cx.notify();
@@ -153,9 +158,12 @@ impl Workspace {
                                 cx.stop_propagation();
                             }),
                         )
+                        .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
+                        .child(div().px_3().pt_3().pb_2().text_sm().child("Commands"))
                         .child(
                             div()
-                                .p_2()
+                                .px_2()
+                                .pb_2()
                                 .border_b_1()
                                 .border_color(rgb(color::BORDER))
                                 .child(self.command_editor.clone()),

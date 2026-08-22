@@ -83,7 +83,7 @@ impl Workspace {
         let message_id = format!("msg_gpui_{created:x}");
         let text_part_id = format!("prt_gpui_{created:x}");
         let files = prompt_files(tab, directory, &text);
-        super::optimistic::push_optimistic_message(
+        let optimistic = super::optimistic::push_optimistic_message(
             tab,
             &session_id,
             &message_id,
@@ -94,8 +94,12 @@ impl Workspace {
             optimistic_model,
             created,
         );
-        let directory = directory.to_owned();
         tab.prompt_error = None;
+        if let Some(message) = optimistic {
+            self.mark_part_entrances(&message.parts, cx);
+            self.timeline_cache.push_optimistic(&session_id, message);
+        }
+        let directory = directory.to_owned();
         cx.notify();
         cx.spawn(async move |workspace, cx| {
             let result = client
@@ -125,6 +129,9 @@ impl Workspace {
                             messages.retain(|message| message.info.id() != message_id);
                         }
                     }
+                    workspace
+                        .timeline_cache
+                        .remove_message(&session_id, &message_id);
                     workspace.restore_draft(&directory, &session_id, cx);
                     cx.notify();
                 }

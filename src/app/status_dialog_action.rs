@@ -14,6 +14,8 @@ impl Workspace {
             return;
         };
         self.status_dialog.reset_for_open();
+        self.clear_interrupt();
+        self.reset_picker_scroll();
         self.overlay = Overlay::Status;
         self.focus_overlay_on_render = true;
         self.start_status_refresh(client, target, cx);

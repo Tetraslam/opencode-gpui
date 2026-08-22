@@ -127,6 +127,7 @@ impl Workspace {
             .map_or(0, |duration| duration.as_secs());
         self.debug_dialog.entries = build_debug_entries(context, now);
         self.debug_dialog.copied = false;
+        self.clear_interrupt();
         self.overlay = Overlay::Debug;
         self.focus_overlay_on_render = true;
     }

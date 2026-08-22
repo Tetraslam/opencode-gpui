@@ -57,6 +57,7 @@ impl Workspace {
             return;
         };
         self.timeline_message = Some(entry.message_id.clone());
+        self.clear_interrupt();
         self.overlay = Overlay::MessageActions;
         self.overlay_selection = 0;
         self.focus_overlay_on_render = true;

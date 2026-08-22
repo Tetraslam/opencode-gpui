@@ -176,6 +176,7 @@ impl Command {
 impl Workspace {
     pub(super) fn refresh_command_suggestions(&mut self, query: &str) {
         self.overlay_selection = 0;
+        self.reset_picker_scroll();
         self.command_suggestions = std::sync::Arc::new(self.filtered_commands(query));
     }
 
@@ -193,11 +194,14 @@ impl Workspace {
     }
 
     pub(super) fn execute_command(&mut self, command: Command, cx: &mut Context<Self>) {
+        self.clear_interrupt();
         self.overlay = Overlay::None;
         self.command_editor.update(cx, TextEditor::clear);
         match command {
             Command::OpenDirectory => {
                 self.overlay = Overlay::Directory;
+                self.directory_editor.update(cx, TextEditor::clear);
+                self.refresh_directory_suggestions(String::new(), cx);
                 self.focus_overlay_on_render = true;
             }
             Command::NewSession => self.create_active_session(cx),

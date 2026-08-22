@@ -85,7 +85,12 @@ impl Workspace {
                                 self.last_prompt_context()
                             })
                             .child(if busy {
-                                Self::abort_button(session_id.expect("busy session has an id"), cx)
+                                let session_id = session_id.expect("busy session has an id");
+                                Self::abort_button(
+                                    session_id.clone(),
+                                    self.interrupt_session.as_deref() == Some(session_id.as_str()),
+                                    cx,
+                                )
                             } else {
                                 Self::send_button(cx)
                             }),
@@ -128,13 +133,17 @@ impl Workspace {
             .into_any_element()
     }
 
-    fn abort_button(session_id: String, cx: &mut Context<Self>) -> gpui::AnyElement {
+    fn abort_button(session_id: String, armed: bool, cx: &mut Context<Self>) -> gpui::AnyElement {
         div()
             .id("abort-prompt")
             .cursor_pointer()
             .text_color(rgb(color::RED))
             .hover(|button| button.text_color(rgb(color::TEXT_BRIGHT)))
-            .child("esc  abort")
+            .child(if armed {
+                "esc again  abort"
+            } else {
+                "esc x2  abort"
+            })
             .on_click(cx.listener(move |workspace, _, _, cx| {
                 workspace.abort_session(session_id.clone(), cx);
             }))
@@ -142,6 +151,8 @@ impl Workspace {
     }
 
     pub(super) fn abort_session(&mut self, session_id: String, cx: &mut Context<Self>) {
+        self.clear_interrupt();
+        cx.notify();
         let Some((directory, client)) = self
             .active_tab()
             .map(|tab| (tab.directory.clone(), tab.client.clone()))

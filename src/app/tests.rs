@@ -36,8 +36,9 @@ mod stream_tests;
 mod test_helpers;
 #[path = "timeline_overlay_tests.rs"]
 mod timeline_overlay_tests;
-use test_helpers::{session, session_in, temp_path};
+use test_helpers::{message_record, session, session_in, temp_path};
 
+#[allow(clippy::too_many_lines)]
 fn workspace(
     cx: &mut TestAppContext,
     sessions: Vec<Session>,
@@ -88,8 +89,13 @@ fn workspace(
             },
             server_process: None,
             statuses: Arc::new(HashMap::new()),
+            interrupt_session: None,
+            interrupt_reset: None,
+            interrupt_generation: 0,
             pending_parts: HashMap::new(),
             pending_deltas: HashMap::new(),
+            timeline_cache: super::timeline_cache::TimelineCache::default(),
+            trace_entrances: HashSet::new(),
             tabs: vec![tab],
             tab_bar,
             _tab_bar_subscription: tab_bar_subscription,
@@ -247,49 +253,5 @@ fn directory_tabs_scope_sessions_without_losing_global_discovery(cx: &mut TestAp
         assert_eq!(workspace.tabs.len(), 2);
         assert_eq!(workspace.active_directory(), Some("/work/b"));
         assert_eq!(workspace.tabs[1].timeline.session_id(), Some("b"));
-    });
-}
-
-#[gpui::test]
-fn streamed_deltas_append_when_events_do_not_include_full_text(cx: &mut TestAppContext) {
-    let message: Message = serde_json::from_str(
-        r#"{"id":"msg_1","sessionID":"ses_1","role":"user","time":{"created":1},"agent":"build","model":{"providerID":"openai","modelID":"test"}}"#,
-    )
-    .unwrap();
-    let first: Part = serde_json::from_str(
-        r#"{"id":"part_1","sessionID":"ses_1","messageID":"msg_1","type":"text","text":"hel"}"#,
-    )
-    .unwrap();
-    let workspace = workspace(
-        cx,
-        Vec::new(),
-        TimelineState::Ready {
-            session_id: "ses_1".into(),
-            title: "session".into(),
-            messages: Vec::new(),
-        },
-    );
-    workspace.update(cx, |workspace, _| {
-        workspace.apply_events(
-            vec![
-                Event::MessageUpdated(message),
-                Event::MessagePartUpdated {
-                    part: first,
-                    delta: Some("hel".into()),
-                },
-                Event::MessagePartDelta {
-                    session_id: "ses_1".into(),
-                    message_id: "msg_1".into(),
-                    part_id: "part_1".into(),
-                    field: "text".into(),
-                    delta: "lo".into(),
-                },
-            ],
-            None,
-        );
-        let TimelineState::Ready { messages, .. } = &workspace.tabs[0].timeline else {
-            panic!("timeline should remain loaded");
-        };
-        assert_eq!(messages[0].parts[0].text(), Some("hello"));
     });
 }

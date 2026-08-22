@@ -77,6 +77,7 @@ impl Workspace {
                             if let Some(bootstrap) = bootstrap {
                                 workspace.merge_directory_sessions(&directory, bootstrap.sessions);
                             }
+                            workspace.mark_event_entrances(&batch, &directory, cx);
                             workspace.apply_events(batch, Some(&directory));
                             workspace.refresh_markdown(&directory, cx);
                             workspace.refresh_image_cache(&directory, cx);

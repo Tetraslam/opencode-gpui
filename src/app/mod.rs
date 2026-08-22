@@ -28,6 +28,7 @@ mod image_attachment;
 mod image_cache;
 mod image_row;
 mod inspector;
+mod interrupt;
 mod local_server;
 mod markdown_cache;
 mod markdown_code_view;
@@ -67,12 +68,14 @@ mod text_row;
 mod timeline;
 mod timeline_action_view;
 mod timeline_actions;
+mod timeline_cache;
 mod timeline_overlay;
 mod timeline_overlay_view;
 mod timeline_reconcile;
 mod timeline_scroll;
 mod timeline_state;
 mod tool_row;
+mod trace_entrance;
 mod workspace_activity;
 mod workspace_command;
 mod workspace_layout;
@@ -143,8 +146,13 @@ pub struct Workspace {
     pub(super) server_state: ServerState,
     server_process: Option<local_server::ManagedServer>,
     pub(super) statuses: Arc<HashMap<String, SessionStatus>>,
+    pub(super) interrupt_session: Option<String>,
+    pub(super) interrupt_reset: Option<Task<()>>,
+    pub(super) interrupt_generation: u64,
     pub(super) pending_parts: HashMap<String, Vec<opencode_gpui::model::Part>>,
     pub(super) pending_deltas: HashMap<String, Vec<PendingDelta>>,
+    pub(super) timeline_cache: timeline_cache::TimelineCache,
+    pub(super) trace_entrances: HashSet<PartSelection>,
     pub(super) tabs: Vec<tabs::DirectoryTab>,
     tab_bar: Entity<tab_bar::TabBar>,
     pub(super) _tab_bar_subscription: Subscription,

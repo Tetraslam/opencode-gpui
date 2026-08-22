@@ -117,9 +117,15 @@ Acceptance:
 - Keep stop, wait, spawn, readiness probes, reconnect, and rehydration off GPUI's thread. Bound every phase,
   escalate from graceful stop to kill only for the owned child, and expose retryable errors while retaining the
   last-good workbench.
-- Pressing Escape while the active session is working sends OpenCode's real abort action immediately and
-  visibly transitions through the authoritative server state. Escape must not merely hide an overlay or
-  locally pretend the run stopped; overlay dismissal takes precedence only when an overlay is actually open.
+- While the active session is working, require two Escape presses within two seconds to send OpenCode's real
+  abort action. The first press visibly arms interruption, the second aborts, and the armed state resets after
+  two seconds without blocking input. Escape must not merely pretend the run stopped; an open overlay dismisses
+  before the double-Escape sequence begins.
+- Every searchable menu keeps title/search chrome in a separate pinned layout region from its scrollable rows.
+  Opening or switching a menu starts with the first row fully below the search field, and wrapping from the last
+  row to the first scrolls the first row fully into view rather than hiding it behind pinned chrome.
+- Mouse-wheel and trackpad scrolling inside a menu is contained by that menu at both scroll boundaries. Excess
+  scroll never moves the conversation, sidebar, or any surface behind the overlay.
 
 Acceptance:
 
@@ -156,8 +162,11 @@ Acceptance:
   directory streams reconnect, capabilities refresh, and existing visual state does not flash or disappear.
 - Restart is disabled with a clear ownership explanation for explicit remote and unowned local servers. Failed
   stop, spawn, readiness, and reconnect phases retain last-good state and offer a retry.
-- Pressing Escape during generation or tool execution aborts the server run; pressing it with an open overlay
-  dismisses that overlay without accidentally aborting the session underneath.
+- Pressing Escape twice within two seconds during generation or tool execution aborts the server run; one press
+  only arms interruption and expires visibly. Pressing Escape with an open overlay dismisses that overlay
+  without arming or aborting the session underneath.
+- Every menu opens at a deterministic top position, wraps keyboard selection without obscuring the selected row,
+  and consumes wheel/trackpad scrolling even when its own scroll view has reached an edge.
 
 ### Selectable text everywhere
 
@@ -276,9 +285,9 @@ Acceptance:
 - Ignore snapshots for stale session/directory requests.
 - Only notify GPUI when visible data actually changed.
 - Show an unobtrusive stale/error state when refresh fails without blanking good data.
-- Eliminate flashes caused by ordinary prompting, streaming parts, tool transitions, tab/session changes,
+- ~~Eliminate flashes caused by ordinary prompting, streaming parts, tool transitions, tab/session changes,
   inspector selection changes, and context refreshes. Existing sidebar pixels remain stable until replacement
-  content is ready, and unrelated events do not reset the whole inspector tree.
+  content is ready, and unrelated events do not reset the whole inspector tree.~~
 
 Acceptance:
 
@@ -286,7 +295,7 @@ Acceptance:
 - Refresh preserves selected detail, expansion, section geometry, and last-good content on failure.
 - Rapid events coalesce into bounded refresh work.
 - Switching sessions during a refresh cannot paint the old session's context.
-- Reproducing ordinary multi-tool work and inspector navigation causes no blank, loading, or geometry flash.
+- ~~Reproducing ordinary multi-tool work and inspector navigation causes no blank, loading, or geometry flash.~~
 
 ### Key-repeat performance
 
@@ -297,6 +306,9 @@ Acceptance:
 - Coalesce scroll-to-selected work to the display frame when repeated input outpaces rendering.
 - Keep mouse hover and keyboard selection synchronized without generating feedback loops.
 - Add a repeat-path performance regression test with a realistic result count.
+- Switching from an inactive session to one with active model or tool work has the same sub-millisecond dispatch
+  budget as an idle session. Status volume, streamed parts, pending sidebar work, and active trace preparation
+  must not add synchronous scans, cache rebuilding, network work, or full-workbench rendering to selection.
 
 Acceptance:
 
@@ -305,6 +317,69 @@ Acceptance:
 - Menu movement performs no network or filesystem activity.
 - Mouse hover and keyboard selection remain synchronized, and a sustained-repeat regression test
   covers a realistically large result set.
+- Switching into a busy session updates selection/highlight below 1 ms at p99 and presents its already-streamed
+  state from memory without a visible stall or new foreground load.
+
+### Trace entry transitions
+
+- New user, assistant, reasoning, tool, retry, error, and system entries enter with a restrained transition
+  instead of appearing in one abrupt frame. Favor a short opacity/position settle that preserves reading flow
+  and never delays authoritative state application.
+- Transition only genuinely new trace identity. Streaming deltas, status updates, prepared Markdown, image loads,
+  tool progress, and cache refreshes update in place without replaying the entrance animation.
+- Keep animation bookkeeping process-local, bounded, and off direct interaction paths. Large history hydration,
+  tab switching, timeline reconciliation, and reopening a session render immediately rather than animating every
+  retained entry.
+- Respect reduced-motion settings and provide a no-animation path. Tail following remains stable and transitions
+  cannot create scroll jumps, input lag, delayed tool visibility, or event backlog.
+
+Acceptance:
+
+- A newly streamed trace entry appears gracefully without delaying its first meaningful content or moving prior
+  content, while subsequent deltas remain visually stationary.
+- Rapid tool/event bursts stay responsive and bounded; restored history does not cascade animations.
+
+### Tool-specific rendering
+
+- Audit OpenCode's current TUI and protocol payload for every built-in and dynamically reported tool before
+  choosing its collapsed summary, live state, expanded body, and inspector representation.
+- Give todo-list tools a real checklist/update presentation with item status, priority, additions, completions,
+  and removals rather than generic JSON or an opaque tool row.
+- Give bash calls command-focused summaries, live bounded streaming output, elapsed/running state, exit status,
+  working directory, truncation disclosure, and complete output on explicit expansion. Streaming updates modify
+  one stable row instead of appending duplicate output or rebuilding the trace.
+- Provide intentional renderers for read, grep, glob, edit/write/patch, task/subagent, question/permission, web,
+  MCP, LSP, skill, and other known tool families while retaining a safe generic renderer for unknown tools.
+- Generic tool responses show a useful bounded preview and key metadata instead of either dumping enormous JSON
+  into the timeline or hiding all output. Expanded detail and inspector views retain the complete response.
+- Never pretty-print, parse, diff, or reshape large tool payloads on GPUI's thread. Bound preview work and cache
+  prepared representations by part identity and authoritative updates.
+
+Acceptance:
+
+- Representative todo, bash (running and completed), read, grep, glob, patch, subagent, MCP, and unknown-tool
+  fixtures have readable collapsed, streaming, completed, failed, expanded, and inspector states.
+- Large JSON responses do not dominate the trace, but users can still inspect all output explicitly.
+
+### Collapsed tool-work groups
+
+- Add a user setting that collapses consecutive tool calls and intervening reasoning that is not followed by
+  ordinary assistant prose into one compact work group. Keep it available globally and as an explicit per-group
+  expansion override.
+- A collapsed group summarizes tool count, active/completed/failed state, elapsed time, meaningful tool names,
+  todo progress, and the latest relevant action without fabricating status.
+- Preserve chronological order and full fidelity when expanded. Assistant prose, questions, permissions, errors,
+  retries requiring attention, and final answers remain visible outside the collapsed group.
+- Streaming into a collapsed group updates its compact summary in place and does not force expansion, jump the
+  timeline, or hide an interaction that requires the user.
+- Persist the global preference atomically; retain per-group expansion for the current session/process unless a
+  durable protocol identity makes persistence reliable.
+
+Acceptance:
+
+- With collapse enabled, a long reasoning/tool/reasoning/tool sequence occupies one readable row while the final
+  assistant answer remains prominent; expanding restores every original part in order.
+- Active, failed, permission-blocked, and completed groups remain distinguishable without monitoring raw tools.
 
 ## Previously requested follow-up scope
 

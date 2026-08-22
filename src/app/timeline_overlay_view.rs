@@ -57,6 +57,7 @@ fn overlay_panel(
             MouseButton::Left,
             cx.listener(|_, _, _, cx| cx.stop_propagation()),
         )
+        .on_scroll_wheel(cx.listener(|_, _, _, cx| cx.stop_propagation()))
         .child(
             div()
                 .px_3()

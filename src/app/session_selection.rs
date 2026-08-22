@@ -24,6 +24,8 @@ impl Workspace {
         title: SharedString,
         cx: &mut Context<Self>,
     ) {
+        self.clear_interrupt();
+        let cached = self.timeline_cache.get(&session_id).map(<[_]>::to_vec);
         let Some(tab) = self.tabs.iter_mut().find(|tab| tab.directory == directory) else {
             return;
         };
@@ -44,10 +46,20 @@ impl Workspace {
         tab.history_exhausted = false;
         tab.follow_tail = true;
         tab.timeline_scroll.scroll_to_bottom();
-        tab.timeline = TimelineState::Loading {
-            session_id: session_id.clone(),
-            title: title.clone(),
-        };
+        tab.timeline = cached.map_or_else(
+            || TimelineState::Loading {
+                session_id: session_id.clone(),
+                title: title.clone(),
+            },
+            |messages| TimelineState::Ready {
+                session_id: session_id.clone(),
+                title: title.clone(),
+                messages,
+            },
+        );
+        if let super::composer_catalog::CatalogState::Ready(catalog) = &tab.catalog {
+            tab.selection.initialize(catalog, &tab.timeline);
+        }
         let client = tab.client.clone();
         let task_directory = directory.to_owned();
         self.restore_draft(directory, &session_id, cx);
@@ -60,16 +72,20 @@ impl Workspace {
                 .await
                 .map_err(|error| error.to_string());
             let _ = workspace.update(cx, |workspace, cx| {
-                let Some(tab) = workspace
+                let Some(tab_index) = workspace
                     .tabs
-                    .iter_mut()
-                    .find(|tab| tab.directory == task_directory)
+                    .iter()
+                    .position(|tab| tab.directory == task_directory)
                 else {
                     return;
                 };
-                if tab.timeline.session_id() != Some(requested_id.as_str()) {
+                if let Ok(messages) = &result {
+                    workspace.timeline_cache.replace(&requested_id, messages);
+                }
+                if workspace.tabs[tab_index].timeline.session_id() != Some(requested_id.as_str()) {
                     return;
                 }
+                let tab = &mut workspace.tabs[tab_index];
                 tab.timeline = match result {
                     Ok(messages) => {
                         tab.history_exhausted = messages.len() < MESSAGE_PAGE;
